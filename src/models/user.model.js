@@ -50,6 +50,18 @@ var userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    wishList: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Food",
+      },
+    ],
+    orders: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Order",
+      },
+    ],
     role: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Role",
