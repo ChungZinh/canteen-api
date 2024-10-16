@@ -116,8 +116,7 @@ class FoodService {
   }
 
   static async soldOutFood(req) {
-
-    console.log(req.params)
+    console.log(req.params);
 
     const { id } = req.params;
 
@@ -144,6 +143,18 @@ class FoodService {
     food.isSoldOut = false;
 
     return await food.save();
+  }
+
+  static async getFoodById(req) {
+    const { id } = req.params;
+
+    const food = await Food.findById(id).populate("category", "name");
+
+    if (!food) {
+      throw new NotFoundResponse("Food not found");
+    }
+
+    return food;
   }
 }
 

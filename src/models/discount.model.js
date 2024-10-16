@@ -9,18 +9,39 @@ var discountSchema = new mongoose.Schema(
     code: {
       type: String,
       required: true,
-    },
-    discount: {
-      type: Number,
-      required: true,
+      unique: true,
     },
     description: {
       type: String,
       required: true,
     },
-    expiredAt: {
+    discountPercentage: {
+      type: Number,
+      required: true,
+      min: 0,
+      max: 100,
+    },
+    startDate: {
       type: Date,
       required: true,
+    },
+    endDate: {
+      type: Date,
+      required: true,
+    },
+    minOrderValue: {
+      type: Number,
+      default: 0,
+    },
+    applicableProducts: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Food", // Giảm giá có thể áp dụng cho những sản phẩm cụ thể
+      },
+    ],
+    active: {
+      type: Boolean,
+      default: true,
     },
   },
   {
@@ -28,7 +49,6 @@ var discountSchema = new mongoose.Schema(
     collection: COLLECTION_NAME,
   }
 );
-
 
 //Export the model
 module.exports = mongoose.model(DOCUMENT_NAME, discountSchema);

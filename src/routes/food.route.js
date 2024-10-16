@@ -15,4 +15,5 @@ router.put("/:id", asyncHandler(FoodController.updateFood));
 router.delete("/sold-out/:id", asyncHandler(FoodController.soldOutFood));
 // open
 router.delete("/available/:id", asyncHandler(FoodController.availableFood));
+router.get("/:id", asyncHandler(FoodController.getFoodById));
 module.exports = router;

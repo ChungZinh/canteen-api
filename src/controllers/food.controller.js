@@ -45,6 +45,13 @@ class FoodController {
       data: await FoodService.availableFood(req),
     }).send(res);
   }
+
+  static async getFoodById(req, res, next) {
+    new SuccessResponse({
+      message: "Get food by id successfully",
+      data: await FoodService.getFoodById(req),
+    }).send(res);
+  }
 }
 
 module.exports = FoodController;
