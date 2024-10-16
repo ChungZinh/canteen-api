@@ -3,6 +3,7 @@ const morgan = require("morgan");
 const cors = require("cors");
 const { default: helmet } = require("helmet");
 const compression = require("compression");
+const swaggerUi = require("swagger-ui-express");
 require("dotenv").config();
 const app = express();
 
@@ -16,6 +17,13 @@ app.use(cors());
 
 // database
 require("./db/init.mongodb");
+
+//swagger
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(require("./swagger/swaggerConfig"))
+);
 
 // routes
 app.use("", require("./routes"));
