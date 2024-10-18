@@ -29,7 +29,7 @@ class FoodService {
 
   static async getAllFood(req) {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 8;
     const sortDirection = req.query.order === "asc" ? 1 : -1;
 
     const foods = await Food.find({

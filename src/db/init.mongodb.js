@@ -4,7 +4,8 @@ const {
   db: { host, port, name },
 } = require("../configs/config.mongodb");
 
-const mongoURI = `mongodb://${host}:${port}/${name}`;
+// const mongoURI = `mongodb://${host}:${port}/${name}`;
+const mongoURI = process.env.MONGO_URI;
 
 class Database {
   constructor() {
