@@ -30,11 +30,15 @@ var foodSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    sales: {
+      type: Number,
+      default: 0,
+    },
     isSoldOut: {
       type: Boolean,
       default: false,
     },
-      category: {
+    category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
       required: true,

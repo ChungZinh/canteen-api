@@ -28,8 +28,9 @@ class FoodService {
   }
 
   static async getAllFood(req) {
+    const all = req.query.all;
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 8;
+    const limit = all === "true" ? parseInt(req.query.limit) : 8;
     const sortDirection = req.query.order === "asc" ? 1 : -1;
 
     const foods = await Food.find({
@@ -149,6 +150,23 @@ class FoodService {
     const { id } = req.params;
 
     const food = await Food.findById(id).populate("category", "name");
+
+    if (!food) {
+      throw new NotFoundResponse("Food not found");
+    }
+
+    return food;
+  }
+
+  static async getTop10SellingProducts() {
+    return await Food.find()
+      .sort({ sales: -1 })
+      .limit(8)
+      .populate("category", "name");
+  }
+
+  static async getFoodBySlug(slug) {
+    return await Food.findOne.populate("category", "name").where({ slug });
 
     if (!food) {
       throw new NotFoundResponse("Food not found");

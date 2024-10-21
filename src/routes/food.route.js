@@ -61,8 +61,33 @@ const { authentification } = require("../auth/authUtils");
  */
 router.get("/", asyncHandler(FoodController.getAllFood));
 
-router.use(authentification);
+/**
+ * @swagger
+ * /foods/top-selling:
+ *  get:
+ *   summary: Get top 10 selling food items
+ *  tags: [Foods]
+ * responses:
+ * 200:
+ * description: Top 10 selling food items
+ * content:
+ * application/json:
+ * schema:
+    * type: object
+    * properties:
+        * success:
+            * type: boolean
+            * example: true
+        * message:
+            * type: string
+            * example: Top 10 selling food items retrieved successfully
+        * data:
+ *
+ */
 
+router.get("/top-selling", asyncHandler(FoodController.getTop10SellingProducts));
+
+router.use(authentification);
 
 //pro: name, price, description, quantity, image, category
 
@@ -110,7 +135,7 @@ router.post("/", asyncHandler(FoodController.createFood));
  *           type: string
  *         required: true
  *         properties:
- *              
+ *
  *     responses:
  *       200:
  *         description: Food deleted successfully
