@@ -5,8 +5,6 @@
  *   description: API for managing discounts
  */
 
-
-
 const express = require("express");
 const router = express.Router();
 const DiscountController = require("../controllers/discount.controller");
@@ -102,5 +100,28 @@ router.put("/:id", asyncHandler(DiscountController.updateDiscount));
  *         description: Discount not found
  */
 router.delete("/:id", asyncHandler(DiscountController.deleteDiscount));
+
+/**
+ * @swagger
+ * /discounts/use/{id}:
+ *   put:
+ *     summary: Use a discount by ID
+ *     tags: [Discounts]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the discount to use
+ *     responses:
+ *       200:
+ *         description: Discount used successfully
+ *       404:
+ *         description: Discount not found
+ */
+router.post("/use", asyncHandler(DiscountController.useDiscount));
+
+module.exports = router;
 
 module.exports = router;
