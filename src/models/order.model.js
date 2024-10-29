@@ -13,28 +13,36 @@ var orderSchema = new mongoose.Schema(
     },
     foods: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "DetailFoodForOrder",
+        type: Object,
         required: true,
       },
     ],
-    quantity: {
+    amount: {
       type: Number,
       required: true,
     },
-    total: {
-      type: Number,
-      required: true,
+    note: {
+      type: String,
     },
     payMethod: {
       type: String,
-      enum: ["Cash", "Credit Card"],
+      enum: ["Momo", "ZaloPay", "Ví Sinh Viên"],
       required: true,
     },
     status: {
       type: String,
-      enum: ["Pending", "Preparing", "Completed", "Cancelled"],
+      enum: [
+        "Đã đặt",
+        "Đã thanh toán",
+        "Đã xác nhận",
+        "Đang giao",
+        "Đã giao",
+        "Đã Hủy",
+      ],
       required: true,
+    },
+    payMethodResponse: {
+      type: Object,
     },
   },
   {

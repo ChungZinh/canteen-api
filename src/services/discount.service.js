@@ -23,12 +23,12 @@ class DiscountService {
       description,
     } = req.body;
 
-    // Kiểm tra các sản phẩm trong applicableProducts có tồn tại không
-    const products = await Food.find({ _id: { $in: applicableProducts } });
+    // // Kiểm tra các sản phẩm trong applicableProducts có tồn tại không
+    // const products = await Food.find({ _id: { $in: applicableProducts } });
 
-    if (products.length !== applicableProducts.length) {
-      throw new NotFoundResponse("Some products not found");
-    }
+    // if (products.length !== applicableProducts?.length) {
+    //   throw new NotFoundResponse("Some products not found");
+    // }
 
     // Kiểm tra xem mã code đã tồn tại chưa
     const existingDiscount = await Discount.findOne({ code });
@@ -133,10 +133,10 @@ class DiscountService {
     cartItems.forEach((item) => {
       totalOrderValue += item.price * item.quantity;
 
-      // Nếu mã giảm giá có áp dụng cho sản phẩm cụ thể, kiểm tra sản phẩm đó
+          // Nếu mã giảm giá có áp dụng cho sản phẩm cụ thể, kiểm tra sản phẩm đó
       if (
-        discount.applicableProducts.length === 0 ||
-        discount.applicableProducts.includes(item._id)
+        discount.applicableProducts?.length === 0 ||
+        discount.applicableProducts?.includes(item._id)
       ) {
         // Tính giảm giá cho sản phẩm này
         discountAmount +=
@@ -154,7 +154,7 @@ class DiscountService {
 
     // Kiểm tra giá trị đơn hàng tối thiểu
     if (totalOrderValue < discount.minOrderValue) {
-      throw new ErrorResponse(
+      throw new Error(
         "Đơn hàng chưa đạt giá trị tối thiểu để áp dụng mã giảm giá"
       );
     }
