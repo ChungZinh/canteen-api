@@ -4,6 +4,8 @@ const axios = require("axios");
 const CryptoJS = require("crypto-js"); // Ensure CryptoJS is imported
 const { createOrder } = require("./zalopay.service");
 const Food = require("../models/food.model");
+const User = require("../models/user.model");
+const { NotFoundResponse } = require("../core/error.response");
 const config = {
   app_id: process.env.ZALOPAY_APP_ID,
   key1: process.env.ZALOPAY_KEY1,
@@ -121,16 +123,13 @@ class OrderService {
   }
 
   static async zalopayCallback(req) {
-    // Extract data from the request
     const dataStr = req.body.data;
     const reqMac = req.body.mac;
 
-    // Tạo MAC để kiểm tra tính hợp lệ
     const mac = CryptoJS.HmacSHA256(dataStr, config.key2).toString();
 
     const dataJson = await JSON.parse(dataStr);
 
-    // Find the corresponding order
     const order = await Order.findOne({
       "payMethodResponse.trans_id": dataJson.app_trans_id,
     });
@@ -153,6 +152,7 @@ class OrderService {
       const items = JSON.parse(dataJson.item);
 
       // Cập nhật stock của từng sản phẩm sau khi thanh toán thành công
+      let totalPoints = 0; // Biến để lưu điểm tích lũy
       for (const item of items) {
         const product = await Food.findById(item._id); // `food` là ID sản phẩm trong DB
 
@@ -163,13 +163,36 @@ class OrderService {
 
         if (product) {
           product.stock -= item.quantity;
+          product.sales += item.quantity;
           await product.save();
           console.log(`Updated stock for ${product.name}: ${product.stock}`);
+
+          // Tính điểm dựa trên số lượng sản phẩm hoặc giá trị của từng sản phẩm
+          totalPoints += item.quantity * 10; // Ví dụ: mỗi sản phẩm mua thêm 10 điểm
         }
+      }
+
+      const user = await User.findById(order.user);
+      if (user) {
+        user.points += totalPoints; // Cộng điểm vào tài khoản người dùng
+        user.orders.push(order._id); // Thêm ID đơn hàng vào mảng đơn hàng của người dùng
+        await user.save();
+        console.log(`Updated points for user ${user.name}: ${user.points}`);
       }
     }
 
     return await order.save();
+  }
+
+  static async deleteOrder(req) {
+    const orderId = req.params.id;
+    const order = await Order.findById(orderId);
+
+    if (!order) {
+      throw new NotFoundResponse("Đơn hàng không tồn tại");
+    }
+
+    return await Order.findByIdAndDelete(orderId);
   }
 }
 

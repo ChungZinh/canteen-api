@@ -59,13 +59,12 @@ const OrderController = require("../controllers/order.controller");
  *               $ref: '#/components/schemas/Order'
  *       500:
  *         description: Lỗi server
-*/
+ */
 
 router.post("/zalopay-callback", asyncHandler(OrderController.zalopayCallback));
 
 router.use(authentification);
 router.post("/", asyncHandler(OrderController.createOrder));
-
 
 /**
  * @swagger
@@ -86,4 +85,35 @@ router.post("/", asyncHandler(OrderController.createOrder));
  *         description: Lỗi server
  */
 router.get("/", asyncHandler(OrderController.getAllOrders));
+
+/**
+ * @swagger
+ * /api/orders/{id}:
+ *   delete:
+ *     summary: Xóa đơn hàng
+ *     tags: [Order]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: ID của đơn hàng cần xóa
+ *     responses:
+ *       200:
+ *         description: Đơn hàng đã được xóa thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Đơn hàng đã được xóa thành công"
+ *       404:
+ *         description: Không tìm thấy đơn hàng
+ *       500:
+ *         description: Lỗi server
+ */
+router.delete("/:id", asyncHandler(OrderController.deleteOrder));
 module.exports = router;
