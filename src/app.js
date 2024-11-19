@@ -18,6 +18,9 @@ app.use(cors());
 // database
 require("./db/init.mongodb");
 
+// cron jobs
+require("./cron");
+
 //swagger
 app.use(
   "/api-docs",

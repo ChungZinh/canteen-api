@@ -87,6 +87,36 @@ router.get("/", asyncHandler(FoodController.getAllFood));
 
 router.get("/top-selling", asyncHandler(FoodController.getTop10SellingProducts));
 
+/**
+ * @swagger
+ * /api/statistics:
+ *   get:
+ *     summary: Thống kê số lượng món đã bán trong tháng hiện tại và tháng trước
+ *     description: Tính tổng số món đã bán trong tháng hiện tại và tháng trước và so sánh phần trăm thay đổi.
+ *     responses:
+ *       200:
+ *         description: Thống kê doanh thu và số lượng món đã bán
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 currentMonthSales:
+ *                   type: number
+ *                   description: Tổng số món đã bán trong tháng hiện tại.
+ *                   example: 120
+ *                 lastMonthSales:
+ *                   type: number
+ *                   description: Tổng số món đã bán trong tháng trước.
+ *                   example: 100
+ *                 percentageChange:
+ *                   type: string
+ *                   description: Tỷ lệ thay đổi phần trăm giữa tháng hiện tại và tháng trước.
+ *                   example: "20.00"
+ *       500:
+ *         description: Lỗi khi tính toán doanh thu
+ */
+router.get("/statistics", asyncHandler(FoodController.getStatistics));
 router.use(authentification);
 
 //pro: name, price, description, quantity, image, category
@@ -174,7 +204,7 @@ router.put("/:id", asyncHandler(FoodController.updateFood));
 /**
  * @swagger
  * /foods/sold-out/{id}:
- *   delete:
+ *   put:
  *     summary: Mark a food item as sold out
  *     tags: [Foods]
  *     parameters:
@@ -190,12 +220,12 @@ router.put("/:id", asyncHandler(FoodController.updateFood));
  *       404:
  *         description: Food not found
  */
-router.delete("/sold-out/:id", asyncHandler(FoodController.soldOutFood));
+router.put("/sold-out/:id", asyncHandler(FoodController.soldOutFood));
 
 /**
  * @swagger
  * /foods/available/{id}:
- *   delete:
+ *   put:
  *     summary: Mark a food item as available
  *     tags: [Foods]
  *     parameters:
@@ -211,7 +241,7 @@ router.delete("/sold-out/:id", asyncHandler(FoodController.soldOutFood));
  *       404:
  *         description: Food not found
  */
-router.delete("/available/:id", asyncHandler(FoodController.availableFood));
+router.put("/available/:id", asyncHandler(FoodController.availableFood));
 
 /**
  * @swagger

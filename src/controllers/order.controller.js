@@ -11,6 +11,20 @@ class OrderController {
     }).send(res);
   }
 
+  static async getOrdersForChef(req, res, next) {
+    new SuccessResponse({
+      message: "Danh sách đơn hàng cho đầu bếp",
+      data: await OrderService.getOrdersForChef(req),
+    }).send(res);
+  }
+
+  static async getStatistics(req, res, next) {
+    new SuccessResponse({
+      message: "Thống kê số lượng đơn hàng",
+      data: await OrderService.getStatistics(req),
+    }).send(res);
+  }
+
   static async createOrder(req, res, next) {
     new CreatedResponse({
       message: "Đơn hàng đã được tạo thành công",
@@ -29,6 +43,20 @@ class OrderController {
     new SuccessResponse({
       message: "Đơn hàng đã được xóa thành công",
       data: await OrderService.deleteOrder(req),
+    }).send(res);
+  }
+
+  static async createOrderPos(req, res, next) {
+    new CreatedResponse({
+      message: "Đơn hàng đã được tạo thành công",
+      data: await OrderService.createOrderPos(req),
+    }).send(res);
+  }
+
+  static async updateOrderStatus(req, res, next) {
+    new SuccessResponse({
+      message: "Cập nhật trạng thái đơn hàng thành công",
+      data: await OrderService.updateOrderStatus(req),
     }).send(res);
   }
 }

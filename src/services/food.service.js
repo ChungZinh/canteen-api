@@ -3,7 +3,7 @@ const Category = require("../models/category.model");
 const Food = require("../models/food.model");
 class FoodService {
   static async createFood(req) {
-    const { name, price, description, quantity, image, category } = req.body;
+    const { name, price, description, stock, image, category } = req.body;
 
     const categoryF = await Category.findById(category);
 
@@ -16,9 +16,9 @@ class FoodService {
       slug: name.toLowerCase().replace(/ /g, "-"),
       price,
       description,
-      quantity,
+      stock,
       image,
-      isSoldOut: quantity === 0,
+      isSoldOut: stock === 0,
       category,
     });
 
@@ -37,6 +37,7 @@ class FoodService {
       ...(req.query.category && { category: req.query.category }),
       ...(req.query.slug && { slug: req.query.slug }),
       ...(req.query.foodId && { _id: req.query.foodId }),
+      ...(req.query.isSoldOut && { isSoldOut: req.query.isSoldOut }),
       ...(req.query.searchTerm && {
         $or: [
           { name: { $regex: req.query.searchTerm, $options: "i" } },
@@ -73,6 +74,82 @@ class FoodService {
     };
   }
 
+  // Hàm tính tổng số món đã bán trong tháng hiện tại và tháng trước, và so sánh tỷ lệ thay đổi
+  static async getStatistics(req) {
+    const timeNow = new Date();
+
+    // Xác định thời gian tháng hiện tại và tháng trước
+    const startOfMonth = new Date(timeNow.getFullYear(), timeNow.getMonth(), 1);
+    const endOfMonth = timeNow; // Ngày hiện tại
+
+    const startOfLastMonth = new Date(
+      timeNow.getFullYear(),
+      timeNow.getMonth() - 1,
+      1
+    );
+    const endOfLastMonth = new Date(
+      timeNow.getFullYear(),
+      timeNow.getMonth() - 1,
+      timeNow.getDate()
+    );
+
+    // Tính tổng số món đã bán trong tháng hiện tại
+    const currentMonthSales = await Food.aggregate([
+      {
+        $match: {
+          updatedAt: { $gte: startOfMonth, $lte: endOfMonth }, // Lọc theo tháng hiện tại
+        },
+      },
+      {
+        $group: {
+          _id: null, // Không nhóm theo bất kỳ trường nào
+          totalSales: { $sum: "$sales" }, // Tổng số món đã bán
+        },
+      },
+    ]);
+
+    // Tính tổng số món đã bán trong tháng trước
+    const lastMonthSales = await Food.aggregate([
+      {
+        $match: {
+          updatedAt: { $gte: startOfLastMonth, $lte: endOfLastMonth }, // Lọc theo tháng trước
+        },
+      },
+      {
+        $group: {
+          _id: null, // Không nhóm theo bất kỳ trường nào
+          totalSales: { $sum: "$sales" }, // Tổng số món đã bán
+        },
+      },
+    ]);
+
+    const getAllSales = await Food.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalSales: { $sum: "$sales" },
+        },
+      },
+    ]);
+
+
+    // Tính tỷ lệ thay đổi phần trăm
+    let percentageChange = 0;
+    if (lastMonthSales[0]?.totalSales && currentMonthSales[0]?.totalSales) {
+      percentageChange =
+        ((currentMonthSales[0].totalSales - lastMonthSales[0].totalSales) /
+          lastMonthSales[0].totalSales) *
+        100;
+    }
+
+
+    return {
+      currentMonthSales: currentMonthSales[0]?.totalSales || 0, // Tổng số món bán trong tháng hiện tại
+      lastMonthSales: lastMonthSales[0]?.totalSales || 0, // Tổng số món bán trong tháng trước
+      percentageChange: percentageChange.toFixed(2), // Phần trăm thay đổi
+    };
+  }
+
   static async deleteFood(req) {
     const { id } = req.params;
 
@@ -89,7 +166,7 @@ class FoodService {
 
   static async updateFood(req) {
     const { id } = req.params;
-    const { name, price, description, quantity, image, category } = req.body;
+    const { name, price, description, stock, image, category } = req.body;
 
     const categoryF = await Category.findById(category);
 
@@ -108,7 +185,7 @@ class FoodService {
       slug: name.toLowerCase().replace(/ /g, "-"),
       price,
       description,
-      quantity,
+      stock,
       image,
       category,
     });

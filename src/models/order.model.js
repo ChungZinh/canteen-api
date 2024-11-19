@@ -9,7 +9,6 @@ var orderSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
     },
     foods: [
       {
@@ -34,16 +33,39 @@ var orderSchema = new mongoose.Schema(
       enum: [
         "Đã đặt",
         "Đã thanh toán",
-        "Đã xác nhận",
-        "Đang giao",
-        "Đã giao",
-        "Đã Hủy",
+        "Đang chuẩn bị",
+        "Đã chuẩn bị",
+        "Đã hoàn tất",
+        "Đã hủy",
       ],
       required: true,
     },
     payMethodResponse: {
       type: Object,
     },
+    timeline: [
+      {
+        status: {
+          type: String,
+          enum: [
+            "Đã đặt",
+            "Đã thanh toán",
+            "Đang chuẩn bị",
+            "Đã chuẩn bị",
+            "Đã hoàn tất",
+            "Đã hủy",
+          ],
+          required: true,
+        },
+        timestamp: {
+          type: Date,
+          default: Date.now, // Default to the current timestamp
+        },
+        note: {
+          type: String,
+        },
+      },
+    ],
   },
   {
     timestamps: true,

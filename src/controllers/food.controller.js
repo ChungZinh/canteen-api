@@ -11,6 +11,13 @@ class FoodController {
     }).send(res);
   }
 
+  static async getStatistics(req, res, next) {
+    new SuccessResponse({
+      message: "Get statistics successfully",
+      data: await FoodService.getStatistics(),
+    }).send(res);
+  }
+
   static async createFood(req, res, next) {
     new CreatedResponse({
       message: "Create food successfully",

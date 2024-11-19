@@ -30,11 +30,7 @@ class CategoryService {
       throw new Error("Category not found");
     }
 
-    // set isDeleted to true
-    category.isDeleted = true;
-
-    // Save category
-    return await category.save();
+    return await Category.findByIdAndDelete(id);
   }
 
   static async updateCategory(req) {

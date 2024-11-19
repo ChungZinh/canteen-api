@@ -63,7 +63,54 @@ const OrderController = require("../controllers/order.controller");
 
 router.post("/zalopay-callback", asyncHandler(OrderController.zalopayCallback));
 
+router.post("/pos", asyncHandler(OrderController.createOrderPos));
+
+/**
+ * @swagger
+ * /api/order-comparison:
+ *   get:
+ *     summary: Thống kê số lượng đơn hàng trong tháng hiện tại và tháng trước
+ *     description: Tính tổng số đơn hàng đã được đặt trong tháng hiện tại và tháng trước và so sánh phần trăm thay đổi.
+ *     responses:
+ *       200:
+ *         description: Thống kê số lượng đơn hàng đã đặt
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 currentMonthOrders:
+ *                   type: number
+ *                   description: Tổng số đơn hàng trong tháng hiện tại.
+ *                   example: 100
+ *                 lastMonthOrders:
+ *                   type: number
+ *                   description: Tổng số đơn hàng trong tháng trước.
+ *                   example: 80
+ *                 percentageChangeOrders:
+ *                   type: string
+ *                   description: Tỷ lệ thay đổi phần trăm giữa tháng hiện tại và tháng trước.
+ *                   example: "25.00"
+ *                currentMonthRevenue:
+ *                  type: number
+ *                  description: Tổng doanh thu trong tháng hiện tại.
+ *                  example: 1000000
+ *                lastMonthRevenue:
+ *                  type: number
+ *                  description: Tổng doanh thu trong tháng trước.
+ *                  example: 800000
+ *                percentageChangeRevenue:
+    *               type: string
+    *               description: Tỷ lệ thay đổi phần trăm giữa tháng hiện tại và tháng trước.
+    *               example: "25.00"
+ *       500:
+ *         description: Lỗi khi tính toán số lượng đơn hàng
+ */
+
 router.use(authentification);
+router.get("/statistic", asyncHandler(OrderController.getStatistics));
+router.get("/chef", asyncHandler(OrderController.getOrdersForChef));
+router.put("/chef/:id", asyncHandler(OrderController.updateOrderStatus));
 router.post("/", asyncHandler(OrderController.createOrder));
 
 /**
