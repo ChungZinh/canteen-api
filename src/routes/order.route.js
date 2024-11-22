@@ -100,19 +100,25 @@ router.post("/pos", asyncHandler(OrderController.createOrderPos));
  *                  description: Tổng doanh thu trong tháng trước.
  *                  example: 800000
  *                percentageChangeRevenue:
-    *               type: string
-    *               description: Tỷ lệ thay đổi phần trăm giữa tháng hiện tại và tháng trước.
-    *               example: "25.00"
+ *               type: string
+ *               description: Tỷ lệ thay đổi phần trăm giữa tháng hiện tại và tháng trước.
+ *               example: "25.00"
  *       500:
  *         description: Lỗi khi tính toán số lượng đơn hàng
  */
 
+router.get(
+  "/confirmation/:id",
+  asyncHandler(OrderController.getOrderForConfirmation)
+);
+
+router.put("/complete-order/:id", asyncHandler(OrderController.completeOrder));
 router.use(authentification);
 router.get("/statistic", asyncHandler(OrderController.getStatistics));
 router.get("/chef", asyncHandler(OrderController.getOrdersForChef));
 router.put("/chef/:id", asyncHandler(OrderController.updateOrderStatus));
 router.post("/", asyncHandler(OrderController.createOrder));
-
+router.get("/:id", asyncHandler(OrderController.getOrderById));
 /**
  * @swagger
  * /api/orders:

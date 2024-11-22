@@ -4,15 +4,24 @@ const axios = require("axios");
 const CryptoJS = require("crypto-js"); // Ensure CryptoJS is imported
 const { createOrder } = require("./zalopay.service");
 const Food = require("../models/food.model");
+const QRCode = require("qrcode");
 const User = require("../models/user.model");
-const { NotFoundResponse } = require("../core/error.response");
+const {
+  NotFoundResponse,
+  UnauthorizedResponse,
+  BadRequestResponse,
+} = require("../core/error.response");
+const { transporter } = require("../utils/sendMail");
+const { generateOrderHTML } = require("../utils/generateOrderHTML");
+const uploadFileToS3 = require("../utils/s3Upload");
 const config = {
   app_id: process.env.ZALOPAY_APP_ID,
   key1: process.env.ZALOPAY_KEY1,
   key2: process.env.ZALOPAY_KEY2,
   endpoint: process.env.ZALOPAY_ENDPOINT,
-  callback_url:
-    "https://c1eb-2405-4803-b4d4-6c30-de7f-5bb6-da5c-1f9f.ngrok-free.app/api/v1/orders/zalopay-callback", // Replace with actual callback URL
+  callback_url: `${
+    process.env.URL || "http://localhost:3001"
+  }/api/v1/orders/zalopay-callback`, // Replace with actual callback URL
 };
 class OrderService {
   static async getAllOrders(req) {
@@ -21,6 +30,7 @@ class OrderService {
     const limit = all === "true" ? parseInt(req.query.limit) : 8;
     const sortDirection = req.query.order === "asc" ? 1 : -1;
     const orders = await Order.find({
+      ...(req.query.id && { _id: req.query.id }),
       ...(req.query.user && { user: req.query.user }),
       ...(req.query.status && { status: req.query.status }),
     })
@@ -52,6 +62,15 @@ class OrderService {
       totalPages,
       lastMonthOrders,
     };
+  }
+
+  static async getOrderById(req) {
+    const orderId = req.params.id;
+    const order = await Order.findById(orderId)
+      .populate("user", "fullName phone email avatar")
+      .populate("foods", "name image price quantity");
+
+    return order;
   }
 
   static async getOrdersForChef(req) {
@@ -359,72 +378,135 @@ class OrderService {
     }
   }
 
-  static async zalopayCallback(req) {
-    const dataStr = req.body.data;
-    const reqMac = req.body.mac;
+  static async zalopayCallback(req, res) {
+    const { data: dataStr, mac: reqMac } = req.body;
 
+    // Tính toán MAC để xác thực
     const mac = CryptoJS.HmacSHA256(dataStr, config.key2).toString();
 
-    const dataJson = await JSON.parse(dataStr);
-
-    const order = await Order.findOne({
-      "payMethodResponse.trans_id": dataJson.app_trans_id,
-    });
-
-    if (!order) {
-      console.error(`Order not found for transaction ID: ${dataJson.trans_id}`);
-      return res.status(404).json({ error: "Order not found" });
+    // Parse dữ liệu JSON từ request
+    let dataJson;
+    try {
+      dataJson = JSON.parse(dataStr);
+    } catch (error) {
+      console.error("Error parsing JSON data:", error);
+      return new BadRequestResponse("Dữ liệu không hợp lệ");
     }
 
+    // Tìm đơn hàng dựa trên app_trans_id
+    const order = await Order.findOne({
+      "payMethodResponse.trans_id": dataJson.app_trans_id,
+    })
+      .populate("user")
+      .populate("foods");
+
+    if (!order) {
+      console.error(
+        `Order not found for transaction ID: ${dataJson.app_trans_id}`
+      );
+      return new NotFoundResponse("Đơn hàng không tồn tại");
+    }
+
+    // Kiểm tra MAC
     if (reqMac !== mac) {
       order.status = "Đã hủy";
       order.timeline.push({
         status: "Đã hủy",
         note: "Xác thực thất bại, giao dịch bị hủy.",
       });
-    } else {
-      order.status = "Đã thanh toán";
-      order.timeline.push({
-        status: "Đã thanh toán",
-        note: "Thanh toán thành công qua ZaloPay.",
-      });
-      await order.updateOne({
-        "payMethodResponse.zp_trans_id": dataJson.zp_trans_id.toString(),
-      });
-      // order.payMethodResponse.zp_trans_id = dataJson.zp_trans_id;
+      await order.save();
+      return new UnauthorizedResponse("Xác thực không thành công");
+    }
 
-      // Parse `item` thành JSON để truy cập các sản phẩm
-      const items = JSON.parse(dataJson.item);
+    // Cập nhật trạng thái đơn hàng
+    order.status = "Đã thanh toán";
+    order.timeline.push({
+      status: "Đã thanh toán",
+      note: "Thanh toán thành công qua ZaloPay.",
+    });
 
-      // Cập nhật stock của từng sản phẩm sau khi thanh toán thành công
-      let totalPoints = 0; // Biến để lưu điểm tích lũy
-      for (const item of items) {
-        const product = await Food.findById(item._id); // `food` là ID sản phẩm trong DB
+    // Cập nhật thông tin thanh toán
+    order.payMethodResponse.zp_trans_id = dataJson.zp_trans_id.toString();
+
+    // Parse danh sách sản phẩm từ đơn hàng
+    let items;
+    try {
+      items = JSON.parse(dataJson.item);
+    } catch (error) {
+      console.error("Error parsing items JSON:", error);
+      return new BadRequestResponse("Danh sách sản phẩm không hợp lệ");
+    }
+
+    // Cập nhật kho và doanh số sản phẩm
+    let totalPoints = 0;
+
+    const productUpdates = items.map(async (item) => {
+      try {
+        const product = await Food.findById(item._id);
 
         if (!product) {
           console.error(`Product not found for ID: ${item._id}`);
-          return res.status(404).json({ error: "Product not found" });
+          return; // Bỏ qua sản phẩm không tồn tại
         }
 
-        if (product) {
-          product.stock -= item.quantity;
-          product.sales += item.quantity;
-          await product.save();
-          console.log(`Updated stock for ${product.name}: ${product.stock}`);
-
-          // Tính điểm dựa trên số lượng sản phẩm hoặc giá trị của từng sản phẩm
-          totalPoints += item.quantity * 10; // Ví dụ: mỗi sản phẩm mua thêm 10 điểm
-        }
+        product.stock -= item.quantity;
+        product.sales += item.quantity;
+        totalPoints += item.quantity * 10; // Tích lũy điểm
+        await product.save();
+      } catch (error) {
+        console.error(`Error updating product ${item._id}:`, error);
       }
+    });
 
-      const user = await User.findById(order.user);
-      if (user) {
-        user.points += totalPoints; // Cộng điểm vào tài khoản người dùng
-        user.orders.push(order._id); // Thêm ID đơn hàng vào mảng đơn hàng của người dùng
-        await user.save();
-        console.log(`Updated points for user ${user.name}: ${user.points}`);
-      }
+    await Promise.all(productUpdates);
+
+    // Cập nhật điểm và đơn hàng của người dùng
+    const user = await User.findById(order.user);
+    if (user) {
+      user.points += totalPoints;
+      user.orders.push(order._id);
+      await user.save();
     }
+
+    // Gửi email xác nhận đơn hàng
+    const url = `${
+      process.env.URL || "http://localhost:3001"
+    }/api/v1/orders/confirmation/${order._id}`;
+
+    const qrCode = await QRCode.toBuffer(url);
+
+    const qrCodeUrl = await uploadFileToS3(
+      "qr-codes",
+      {
+        name: `order-${order._id}.png`,
+        body: qrCode,
+        type: "image/png",
+      },
+      {
+        region: process.env.REGION,
+        accessKeyId: process.env.ACCESS_KEY,
+        secretAccessKey: process.env.SECRET_ACCESS_KEY,
+        bucket: process.env.BUCKET,
+      }
+    );
+
+    const generateOrderBill = generateOrderHTML(order, qrCodeUrl);
+
+    const mailOptions = {
+      from: process.env.EMAIL,
+      to: user.email,
+      subject: `Đơn hàng và mã QR của đơn hàng #${order._id}`,
+      html: generateOrderBill,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log(`Email sent to ${user.email} for order #${order._id}`);
+    } catch (error) {
+      console.error("Error sending email:", error);
+      return new Error("Gửi email thất bại");
+    }
+    // Lưu đơn hàng cuối cùng
 
     return await order.save();
   }
@@ -534,6 +616,49 @@ class OrderService {
       status: status,
       note: note,
     });
+
+    return await order.save();
+  }
+
+  static async getOrderForConfirmation(req, res) {
+    const { id } = req.params;
+
+    // Tìm đơn hàng bằng id
+    const order = await Order.findById(id)
+      .populate("foods", "name image price quantity")
+      .populate("user", "fullName email phone");
+
+    // Kiểm tra nếu không tìm thấy đơn hàng
+    if (!order) {
+      // Ném lỗi nếu không tìm thấy
+      throw new NotFoundResponse("Đơn hàng không tồn tại");
+    }
+
+    // Thực hiện chuyển hướng đến trang yêu cầu
+    return res.redirect(`http://localhost:5173/contact`);
+  }
+
+  static async completeOrder(req) {
+    const { id } = req.params;
+    const {status} = req.body;
+
+    console.log("status", status);
+    console.log("id", id);
+
+    const order = await Order.findById(id);
+
+    if (!order) {
+      throw new NotFoundResponse("Đơn hàng không tồn tại");
+    }
+
+    if (order.status === "Đã chuẩn bị") {
+      order.status = "Đã hoàn tất";
+      order.timeline.push({
+        status: "Đã hoàn tất",
+      });
+    } else {
+      throw new BadRequestResponse("Đơn hàng chưa chuẩn bị xong");
+    }
 
     return await order.save();
   }

@@ -9,4 +9,5 @@ router.use("/api/v1/orders", require("./order.route"));
 router.use("/api/v1/discounts", require("./discount.route"));
 router.use("/api/v1/users", require("./user.route"));
 router.use("/api/v1/menus", require("./menu.route"));
+router.use("/api/v1/contact", require("./contact.route"));
 module.exports = router;
