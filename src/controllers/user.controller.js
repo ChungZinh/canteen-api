@@ -14,7 +14,13 @@ class UserController {
       data: await UserService.getAllUsers(req),
     }).send(res);
   }
-}
 
+  static async getUserById(req, res, next) {
+    new SuccessResponse({
+      message: "Thông tin người dùng",
+      data: await UserService.getUserById(req, res),
+    }).send(res);
+  }
+}
 
 module.exports = UserController;

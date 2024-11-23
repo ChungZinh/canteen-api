@@ -114,5 +114,6 @@ router.get("/statistics", asyncHandler(UserController.getStatistics));
 
 router.use(authentification);
 router.get("/", asyncHandler(UserController.getAllUsers));
+router.get("/:id", asyncHandler(UserController.getUserById));
 
 module.exports = router;

@@ -1,5 +1,7 @@
+const { NotFoundResponse } = require("../core/error.response");
 const User = require("../models/user.model");
-
+const Food = require("../models/food.model");
+const Order = require("../models/order.model");
 class UserService {
   static async getStatistics() {
     const timeNow = new Date();
@@ -109,6 +111,37 @@ class UserService {
       totalPages,
       totalUsers,
       lastMonthTotalUsers,
+    };
+  }
+
+  static async getUserById(req, res) {
+    const { id } = req.params;
+    const all = req.query.all;
+    const page = parseInt(req.query.page) || 1;
+    const limit = all === "true" ? parseInt(req.query.limit) : 10;
+
+    const user = await User.findById(id)
+      .populate("orders", "createdAt amount status")
+      .populate("wallet");
+
+    const orders = await Order.find({ user: id })
+      .populate("foods")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    if (!user) {
+      throw new NotFoundResponse("Không tìm thấy người dùng");
+    }
+
+    const totalOrders = await Order.countDocuments({ user: id });
+
+    const totalPages = Math.ceil(totalOrders / limit);
+
+    return {
+      user,
+      orders,
+      totalPages,
     };
   }
 }

@@ -32,7 +32,7 @@ class AuthController {
     new SuccessResponse({
       message: "User signed in successfully",
       data: await AuthService.loginUser({
-        studentId: req.body.studentId,
+        email: req.body.email,
         password: req.body.password,
       }),
     }).send(res);
