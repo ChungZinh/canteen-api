@@ -14,7 +14,7 @@ const { authentification } = require("../auth/authUtils");
 
 /**
  * @swagger
- * /discounts/use/{id}:
+ * /api/v1/discounts/use/{id}:
  *   put:
  *     summary: Use a discount by ID
  *     tags: [Discounts]
@@ -37,7 +37,7 @@ router.use(authentification);
 
 /**
  * @swagger
- * /discounts:
+ * /api/v1/discounts:
  *   get:
  *     summary: Get all discounts
  *     tags: [Discounts]
@@ -55,7 +55,7 @@ router.get("/", asyncHandler(DiscountController.getDiscount));
 
 /**
  * @swagger
- * /discounts:
+ * /api/v1/discounts:
  *   post:
  *     summary: Create a new discount
  *     tags: [Discounts]
@@ -77,7 +77,7 @@ router.post("/", asyncHandler(DiscountController.createDiscount));
 
 /**
  * @swagger
- * /discounts/{id}:
+ * /api/v1/discounts/{id}:
  *   put:
  *     summary: Update a discount by ID
  *     tags: [Discounts]
@@ -104,7 +104,7 @@ router.put("/:id", asyncHandler(DiscountController.updateDiscount));
 
 /**
  * @swagger
- * /discounts/{id}:
+ * /api/v1/discounts/{id}:
  *   delete:
  *     summary: Delete a discount by ID
  *     tags: [Discounts]

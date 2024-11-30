@@ -23,7 +23,7 @@ const createOrder = (config, amount, items, userID) => {
   return order;
 };
 
-const depositMoney = (config, amount, userID) => {
+const deposit = (config, amount, userID) => {
   const embed_data = {
     redirecturl: "https://www.youtube.com/",
   };
@@ -36,6 +36,7 @@ const depositMoney = (config, amount, userID) => {
     app_time: Date.now(), // miliseconds
     embed_data: JSON.stringify(embed_data),
     amount: amount,
+    item: JSON.stringify([{ name: "Nạp tiền", quantity: 1 }]),
     description: `Canteen IUH - Nạp tiền #${transID}`,
     bank_code: "zalopayapp",
     callback_url: config.callback_url,
@@ -44,4 +45,4 @@ const depositMoney = (config, amount, userID) => {
   return order;
 };
 
-module.exports = { createOrder, depositMoney };
+module.exports = { createOrder, deposit};

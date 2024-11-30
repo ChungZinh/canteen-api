@@ -5,11 +5,11 @@ const {
 const User = require("../models/user.model");
 const Food = require("../models/food.model");
 const Order = require("../models/order.model");
-const ZaloService = require("../services/zalopay.service");
 const axios = require("axios");
 const CryptoJS = require("crypto-js");
 const Transaction = require("../models/transaction.model");
 const Wallet = require("../models/wallet.model");
+const { deposit } = require("./zalopay.service");
 const config = {
   app_id: process.env.ZALOPAY_APP_ID,
   key1: process.env.ZALOPAY_KEY1,
@@ -139,7 +139,13 @@ class UserService {
 
     const user = await User.findById(id)
       .populate("orders", "createdAt amount status")
-      .populate("wallet");
+      .populate({
+        path: "wallet", // Populate the wallet field
+        populate: {
+          path: "transactions", // Populate the transactions inside the wallet
+          select: "amount payMethod transactionStatus", // Select the fields you want to include for transactions
+        },
+      });
 
     const ordersCompleted = await Order.find({
       user: id,
@@ -181,6 +187,8 @@ class UserService {
   static async depositMoney(req, res) {
     const { amount, userId, paymentMethod } = req.body;
 
+    console.log("Deposit Money Request:", req.body);
+
     // Process payment according to the method
     if (paymentMethod === "Momo") {
       // Implement Momo handling if needed
@@ -188,20 +196,21 @@ class UserService {
       // ZaloPay configuration
 
       // Create ZaloPay order
-      const order = await ZaloService.depositMoney(config, amount, userId);
-
-      console.log("ZaloPay Order:", order);
+      const order = await deposit(config, amount, userId);
 
       // Generate MAC for the order
-      const data = `${config.app_id}|${order.app_trans_id}|${order.app_user}|${order.amount}|${order.app_time}|${order.embed_data}`;
+      const data = `${config.app_id}|${order.app_trans_id}|${order.app_user}|${order.amount}|${order.app_time}|${order.embed_data}|${order.item}`;
+      console.log("Data String:", data);
       order.mac = CryptoJS.HmacSHA256(data, config.key1).toString();
+      console.log("Generated MAC:", order.mac);
 
+      console.log("ZaloPay Order:", order);
       // Send request to ZaloPay API
       const response = await axios.post(config.endpoint, null, {
         params: order,
       });
 
-      console.log("ZaloPay API Response:", response.data);
+      console.log("ZaloPay Response:", response.data);
 
       if (response.data.return_code === 1) {
         const wallet = await Wallet.findOne({ user: userId });
@@ -214,10 +223,10 @@ class UserService {
           user: userId,
           amount,
           transactionType: "deposit",
-          status: "Dang xu ly",
+          payMethod: "ZaloPay",
         });
 
-        wallet.transactions = trans._id;
+        wallet.transactions.push(trans._id);
 
         await wallet.save();
 
@@ -236,6 +245,7 @@ class UserService {
 
   static async zalopayCallback(req, res) {
     const { data: dataStr, mac: reqMac } = req.body;
+    console.log("ZaloPay Callback Request:", req.body);
 
     // Tính toán MAC để xác thực
     const mac = CryptoJS.HmacSHA256(dataStr, config.key2).toString();
@@ -250,7 +260,18 @@ class UserService {
     }
 
     //tim wallet
-    const wallet = await Wallet.findOne({ user: dataJson.app_user });
+    const wallet = await Wallet.findOne({ user: dataJson.app_user }).populate(
+      "transactions"
+    );
+
+    console.log("Wallet:", wallet);
+
+    // Get the most recent transaction
+    const latestTransaction = wallet.transactions.sort(
+      (a, b) => b.createdAt - a.createdAt
+    )[0];
+
+    console.log("Latest Transaction:", latestTransaction);
 
     if (!wallet) {
       throw new NotFoundResponse("Ví không tồn tại");
@@ -259,8 +280,16 @@ class UserService {
     // Kiểm tra MAC
     if (reqMac !== mac) {
       console.error("MAC không khớp");
+      latestTransaction.transactionStatus = "That bai";
+      await latestTransaction.save();
       return new BadRequestResponse("MAC không khớp");
     }
+    //update transaction
+    latestTransaction.transactionStatus = "Thanh cong";
+    await latestTransaction.save();
+    //update wallet
+    wallet.balance += dataJson.amount;
+    return await wallet.save();
   }
 }
 

@@ -13,7 +13,35 @@ const { authentification } = require("../auth/authUtils");
 
 /**
  * @swagger
- * /categories:
+ * components:
+ *   schemas:
+ *     Category:
+ *       type: object
+ *       required:
+ *         - name
+ *       properties:
+ *         id:
+ *           type: string
+ *           description: The unique ID of the category
+ *         name:
+ *           type: string
+ *           description: The name of the category
+ *       example:
+ *         id: 64a5f2e83b9d4c10ab9e6d33
+ *         name: Món Chính
+ *
+ *   responses:
+ *     NotFound:
+ *       description: Resource not found
+ *     ValidationError:
+ *       description: Validation error
+ *     InternalError:
+ *       description: Internal server error
+ */
+
+/**
+ * @swagger
+ * /api/v1/categories:
  *   get:
  *     summary: Get all categories
  *     tags: [Categories]
@@ -26,6 +54,8 @@ const { authentification } = require("../auth/authUtils");
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/Category'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
  */
 router.get("/", asyncHandler(CategoryController.getAllCategories));
 
@@ -33,7 +63,7 @@ router.use(authentification);
 
 /**
  * @swagger
- * /categories:
+ * /api/v1/categories:
  *   post:
  *     summary: Create a new category
  *     tags: [Categories]
@@ -43,6 +73,10 @@ router.use(authentification);
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/Category'
+ *           example:
+ *             name: Món Chính
+ *             description: Món ăn chính
+ *             image: https://example.com/images/category.jpg
  *     responses:
  *       201:
  *         description: Category created successfully
@@ -50,12 +84,16 @@ router.use(authentification);
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Category'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
  */
 router.post("/", asyncHandler(CategoryController.createCategory));
 
 /**
  * @swagger
- * /categories/{id}:
+ * /api/v1/categories/{id}:
  *   put:
  *     summary: Update a category by ID
  *     tags: [Categories]
@@ -72,17 +110,27 @@ router.post("/", asyncHandler(CategoryController.createCategory));
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/Category'
+ *           example:
+ *             name: Updated Category Name
+ *             description: Updated description of the category
+ *             image: https://example.com/images/updated-category.jpg
  *     responses:
  *       200:
  *         description: Category updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Category'
  *       404:
- *         description: Category not found
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
  */
 router.put("/:id", asyncHandler(CategoryController.updateCategory));
 
 /**
  * @swagger
- * /categories/{id}:
+ * /api/v1/categories/{id}:
  *   delete:
  *     summary: Delete a category by ID
  *     tags: [Categories]
@@ -97,7 +145,9 @@ router.put("/:id", asyncHandler(CategoryController.updateCategory));
  *       200:
  *         description: Category deleted successfully
  *       404:
- *         description: Category not found
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
  */
 router.delete("/:id", asyncHandler(CategoryController.deleteCategory));
 

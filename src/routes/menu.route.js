@@ -13,9 +13,10 @@ const MenuController = require("../controllers/menu.controller");
 
 /**
  * @swagger
- * /menu/{day}:
+ * /api/v1/menu/{day}:
  *   get:
  *     summary: Get the food menu for a specific day
+ *     tags: [Menu]
  *     description: Retrieve the food menu for a given day of the week.
  *     parameters:
  *       - name: day
@@ -73,11 +74,14 @@ const MenuController = require("../controllers/menu.controller");
  */
 router.get("/:day", MenuController.getMenuForDay);
 
+
+router.use(authentification);
 /**
  * @swagger
- * /menu:
+ * /api/v1/menu:
  *   post:
  *     summary: Add or update the food menu for a specific day
+ *     tags: [Menu]
  *     description: Add a list of food items to the menu for a specific day of the week.
  *     requestBody:
  *       required: true
@@ -85,6 +89,9 @@ router.get("/:day", MenuController.getMenuForDay);
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - day
+ *               - foodIds
  *             properties:
  *               day:
  *                 type: string
@@ -126,8 +133,20 @@ router.get("/:day", MenuController.getMenuForDay);
  *                           price:
  *                             type: number
  *                             example: 10.99
+ *       404:
+ *         description: No menu found for the given day
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Menu not found for the given day
  */
-router.use(authentification);
 router.post("/", MenuController.addMenuForDay);
 
 module.exports = router;

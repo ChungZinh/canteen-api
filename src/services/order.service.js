@@ -383,6 +383,8 @@ class OrderService {
           await user.save();
         }
 
+        console.log("newOrder", newOrder);
+
         return {
           newOrder,
           orderUrl: response.data.order_url,
@@ -399,6 +401,7 @@ class OrderService {
 
   static async zalopayCallback(req, res) {
     const { data: dataStr, mac: reqMac } = req.body;
+
 
     // Tính toán MAC để xác thực
     const mac = CryptoJS.HmacSHA256(dataStr, config.key2).toString();
