@@ -16,9 +16,13 @@ var transactionSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    payMethod: {
+      type: String,
+      enum: ["Momo", "ZaloPay", "Ví Sinh Viên"],
+    },
     transactionType: {
       type: String,
-      enum: ['deposit', 'withdraw', 'transfer', 'payment'],
+      enum: ["deposit", "withdraw", "transfer", "payment"],
       required: true,
     },
     transactionStatus: {

@@ -165,10 +165,11 @@ class AuthService {
     const { studentId, password, fullName, email, phone, rePassword } =
       req.body;
 
-    // check if user already exists
-    const user = await findUserByStudentId(studentId);
-    if (user) {
-      throw new NotFoundResponse("User already exists");
+    if (studentId) {
+      const user = await User.findOne({ studentId });
+      if (user) {
+        throw new NotFoundResponse("User already exists");
+      }
     }
 
     // check if password and rePassword match

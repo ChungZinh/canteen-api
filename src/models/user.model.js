@@ -8,7 +8,6 @@ var userSchema = new mongoose.Schema(
   {
     studentId: {
       type: String,
-      // required: true,
       unique: true,
     },
     fullName: {

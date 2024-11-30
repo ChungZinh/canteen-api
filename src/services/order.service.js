@@ -309,6 +309,9 @@ class OrderService {
       customerInfo,
       point,
     } = req.body;
+
+    console.log("body", req.body);
+
     // Insert food details into the database
     const detailFoods = await foods.map((food) => {
       return {

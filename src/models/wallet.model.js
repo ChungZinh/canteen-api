@@ -15,11 +15,6 @@ var walletSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    payMethod: {
-      type: String,
-      enum: ["Momo", "ZaloPay", "Ví Sinh Viên"],
-      required: true,
-    },
     transactions: [
       {
         type: mongoose.Schema.Types.ObjectId,
