@@ -11,6 +11,28 @@ const DiscountController = require("../controllers/discount.controller");
 const { asyncHandler } = require("../helpers/asyncHandler");
 const { authentification } = require("../auth/authUtils");
 
+
+/**
+ * @swagger
+ * /discounts/use/{id}:
+ *   put:
+ *     summary: Use a discount by ID
+ *     tags: [Discounts]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the discount to use
+ *     responses:
+ *       200:
+ *         description: Discount used successfully
+ *       404:
+ *         description: Discount not found
+ */
+router.post("/use", asyncHandler(DiscountController.useDiscount));
+
 router.use(authentification);
 
 /**
@@ -101,27 +123,6 @@ router.put("/:id", asyncHandler(DiscountController.updateDiscount));
  */
 router.delete("/:id", asyncHandler(DiscountController.deleteDiscount));
 
-/**
- * @swagger
- * /discounts/use/{id}:
- *   put:
- *     summary: Use a discount by ID
- *     tags: [Discounts]
- *     parameters:
- *       - in: path
- *         name: id
- *         schema:
- *           type: string
- *         required: true
- *         description: The ID of the discount to use
- *     responses:
- *       200:
- *         description: Discount used successfully
- *       404:
- *         description: Discount not found
- */
-router.post("/use", asyncHandler(DiscountController.useDiscount));
 
-module.exports = router;
 
 module.exports = router;

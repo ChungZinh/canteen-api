@@ -115,5 +115,6 @@ router.get("/statistics", asyncHandler(UserController.getStatistics));
 router.use(authentification);
 router.get("/", asyncHandler(UserController.getAllUsers));
 router.get("/:id", asyncHandler(UserController.getUserById));
-
+router.post("/deposit", asyncHandler(UserController.deposit));
+router.post("/zalopay-callback", asyncHandler(UserController.zalopayCallback));
 module.exports = router;

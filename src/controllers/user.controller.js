@@ -21,6 +21,20 @@ class UserController {
       data: await UserService.getUserById(req, res),
     }).send(res);
   }
+
+  static async deposit(req, res, next) {
+    new SuccessResponse({
+      message: "Nạp tiền vào ví",
+      data: await UserService.depositMoney(req, res),
+    }).send(res);
+  }
+
+  static async zalopayCallback(req, res, next) {
+    new SuccessResponse({
+      message: "Zalo callback",
+      data: await UserService.zalopayCallback(req, res),
+    }).send(res);
+  }
 }
 
 module.exports = UserController;

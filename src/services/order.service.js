@@ -11,6 +11,7 @@ const {
   UnauthorizedResponse,
   BadRequestResponse,
 } = require("../core/error.response");
+const { getIO } = require("../socket");
 const { transporter } = require("../utils/sendMail");
 const { generateOrderHTML } = require("../utils/generateOrderHTML");
 const uploadFileToS3 = require("../utils/s3Upload");
@@ -74,7 +75,7 @@ class OrderService {
   }
 
   static async getOrdersForChef(req) {
-    const all = req.query.all;
+    const all = "true";
     const page = parseInt(req.query.page) || 1;
     const limit = all === "true" ? parseInt(req.query.limit) : 8;
     const sortDirection = req.query.order === "asc" ? 1 : -1;
@@ -298,9 +299,17 @@ class OrderService {
   }
 
   static async createOrder(req) {
-    const { userId, foods, amount, paymentMethod, status, note } = req.body;
+    const {
+      userId,
+      foods,
+      amount,
+      paymentMethod,
+      status,
+      note,
+      customerInfo,
+      point,
+    } = req.body;
     // Insert food details into the database
-    console.log("foods", foods);
     const detailFoods = await foods.map((food) => {
       return {
         _id: food._id,
@@ -318,8 +327,15 @@ class OrderService {
     } else if (paymentMethod === "ZaloPay") {
       // ZaloPay configuration
 
+      const id = `GUEST-${Math.floor(Math.random() * 1000000)}`;
+
       // Create ZaloPay order
-      const order = await createOrder(config, amount, detailFoods, userId);
+      const order = await createOrder(
+        config,
+        amount,
+        detailFoods,
+        userId || id
+      );
 
       // Generate MAC for the order
       const data = `${config.app_id}|${order.app_trans_id}|${order.app_user}|${order.amount}|${order.app_time}|${order.embed_data}|${order.item}`;
@@ -335,7 +351,8 @@ class OrderService {
       if (response.data.return_code === 1) {
         // Save the new order to the database if successful
         let newOrder = new Order({
-          user: userId,
+          user: userId || null,
+          customerInfo: customerInfo,
           foods: detailFoods,
           note: note,
           amount,
@@ -359,9 +376,8 @@ class OrderService {
         const user = await User.findById(userId);
         if (user) {
           user.orders.push(newOrder._id); // Thêm ID đơn hàng vào mảng đơn hàng của người dùng
+          user.points -= point; // Trừ điểm
           await user.save();
-        } else {
-          new NotFoundResponse("Người dùng không tồn tại");
         }
 
         return {
@@ -425,6 +441,10 @@ class OrderService {
       note: "Thanh toán thành công qua ZaloPay.",
     });
 
+    // Gửi sự kiện đến màn hình Chef qua WebSocket
+    const io = getIO();
+    io.emit("order_paid", order); // Chỉ gửi object order, không bọc trong `{ order: ... }`
+
     // Cập nhật thông tin thanh toán
     order.payMethodResponse.zp_trans_id = dataJson.zp_trans_id.toString();
 
@@ -461,7 +481,7 @@ class OrderService {
     await Promise.all(productUpdates);
 
     // Cập nhật điểm và đơn hàng của người dùng
-    const user = await User.findById(order.user);
+    const user = await User.findById(order?.user);
     if (user) {
       user.points += totalPoints;
       user.orders.push(order._id);
@@ -494,14 +514,18 @@ class OrderService {
 
     const mailOptions = {
       from: process.env.EMAIL,
-      to: user.email,
+      to: user?.email || order.customerInfo.email,
       subject: `Đơn hàng và mã QR của đơn hàng #${order._id}`,
       html: generateOrderBill,
     };
 
     try {
       await transporter.sendMail(mailOptions);
-      console.log(`Email sent to ${user.email} for order #${order._id}`);
+      console.log(
+        `Email sent to ${user?.email || order.customerInfo.email} for order #${
+          order._id
+        }`
+      );
     } catch (error) {
       console.error("Error sending email:", error);
       return new Error("Gửi email thất bại");
@@ -640,7 +664,7 @@ class OrderService {
 
   static async completeOrder(req) {
     const { id } = req.params;
-    const {status} = req.body;
+    const { status } = req.body;
 
     console.log("status", status);
     console.log("id", id);

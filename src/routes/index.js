@@ -10,4 +10,5 @@ router.use("/api/v1/users", require("./user.route"));
 router.use("/api/v1/menus", require("./menu.route"));
 router.use("/api/v1/contact", require("./contact.route"));
 router.use("/api/v1/webhook", require("./webhook.route"));
+router.use("/api/v1/points", require("./point.route"));
 module.exports = router;

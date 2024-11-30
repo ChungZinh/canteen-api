@@ -23,8 +23,8 @@ var transactionSchema = new mongoose.Schema(
     },
     transactionStatus: {
       type: String,
-      enum: ["pending", "completed", "failed"],
-      default: "pending",
+      enum: ["Dang xu ly", "Thanh cong", "That bai"],
+      default: "Dang xu ly",
     },
   },
   {

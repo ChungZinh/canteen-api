@@ -62,6 +62,7 @@ const OrderController = require("../controllers/order.controller");
  */
 
 router.post("/zalopay-callback", asyncHandler(OrderController.zalopayCallback));
+router.post("/", asyncHandler(OrderController.createOrder));
 
 router.post("/pos", asyncHandler(OrderController.createOrderPos));
 
