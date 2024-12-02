@@ -8,7 +8,6 @@ class MenuService {
     const { day } = req.params;
     const { category, searchTerm } = req.query; // Lấy query categoryId từ request
 
-    console.log("category", category);
 
     const menu = await Menu.findOne({ day }).populate({
       path: "foods",
@@ -36,7 +35,6 @@ class MenuService {
       ); // Tìm kiếm theo tên (case-insensitive)
     }
 
-    console.log("foods", foods);
 
     return { menu, foods }; // Trả về cả menu và danh sách foods đã lọc
   }

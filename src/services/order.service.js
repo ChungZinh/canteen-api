@@ -4,6 +4,7 @@ const axios = require("axios");
 const CryptoJS = require("crypto-js"); // Ensure CryptoJS is imported
 const { createOrder } = require("./zalopay.service");
 const Food = require("../models/food.model");
+const Wallet = require("../models/wallet.model");
 const QRCode = require("qrcode");
 const User = require("../models/user.model");
 const {
@@ -121,6 +122,9 @@ class OrderService {
       {
         $match: {
           createdAt: { $gte: startOfMonth, $lte: endOfMonth },
+          status: {
+            $in: ["Đã hoàn tất"],
+          },
         },
       },
       {
@@ -138,6 +142,9 @@ class OrderService {
       {
         $match: {
           createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth },
+          status: {
+            $in: ["Đã hoàn tất"],
+          },
         },
       },
       {
@@ -395,13 +402,110 @@ class OrderService {
         );
       }
     } else {
-      throw new Error("Phương thức thanh toán không hợp lệ");
+      // Vi Sinh vien
+      let newOrder = new Order({
+        user: userId,
+        customerInfo: customerInfo,
+        foods: detailFoods,
+        note: note,
+        amount,
+        payMethod: paymentMethod,
+        status: status || "Đã đặt",
+        timeline: [
+          {
+            status: status || "Đã đặt",
+            note: note,
+          },
+        ],
+      });
+      // Cập nhật kho và doanh số sản phẩm
+      let totalPoints = 0;
+      const productUpdates = detailFoods.map(async (item) => {
+        try {
+          const product = await Food.findById(item._id);
+
+          if (!product) {
+            new NotFoundResponse("Sản phẩm không tồn tại");
+          }
+
+          product.stock -= item.quantity;
+          product.sales += item.quantity;
+          totalPoints += item.quantity * 15; // Tích lũy điểm
+          await product.save();
+        } catch (error) {
+          console.error(`Error updating product ${item._id}:`, error);
+        }
+      });
+
+      await Promise.all(productUpdates);
+
+      const user = await User.findById(userId).populate("wallet");
+      console.log("user", user);
+      if (user) {
+        user.orders.push(newOrder._id); // Thêm ID đơn hàng vào mảng đơn hàng của người dùng
+        user.points -= point; // Trừ điểm
+        user.wallet.balance -= amount;
+        user.points += totalPoints;
+        newOrder.status = "Đã thanh toán";
+        newOrder.timeline.push({
+          status: "Đã thanh toán",
+          note: "Thanh toán thành công qua ví điện tử.",
+        });
+        await user.wallet.save();
+        await user.save();
+      }
+
+      
+
+      // Gửi email xác nhận đơn hàng
+    const url = `${
+      process.env.URL || "http://localhost:3001"
+    }/api/v1/orders/confirmation/${newOrder._id}`;
+
+    const qrCode = await QRCode.toBuffer(url);
+
+    const qrCodeUrl = await uploadFileToS3(
+      "qr-codes",
+      {
+        name: `order-${newOrder._id}.png`,
+        body: qrCode,
+        type: "image/png",
+      },
+      {
+        region: process.env.REGION,
+        accessKeyId: process.env.ACCESS_KEY,
+        secretAccessKey: process.env.SECRET_ACCESS_KEY,
+        bucket: process.env.BUCKET,
+      }
+    );
+
+    const generateOrderBill = generateOrderHTML(newOrder, qrCodeUrl);
+
+    const mailOptions = {
+      from: process.env.EMAIL,
+      to: user?.email || newOrder.customerInfo.email,
+      subject: `Đơn hàng và mã QR của đơn hàng #${newOrder._id}`,
+      html: generateOrderBill,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log(
+        `Email sent to ${user?.email || newOrder.customerInfo.email} for order #${
+          newOrder._id
+        }`
+      );
+    } catch (error) {
+      console.error("Error sending email:", error);
+      return new Error("Gửi email thất bại");
+    }
+
+      return await newOrder.save();
     }
   }
 
   static async zalopayCallback(req, res) {
     const { data: dataStr, mac: reqMac } = req.body;
-
 
     // Tính toán MAC để xác thực
     const mac = CryptoJS.HmacSHA256(dataStr, config.key2).toString();
