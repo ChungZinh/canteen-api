@@ -254,26 +254,21 @@ class OrderService {
       },
     ]);
 
-    console.log("currentMonthFoodSales", currentMonthFoodSales);
-    console.log("lastMonthFoodSales", lastMonthFoodSales);
-
     // Tính tỷ lệ thay đổi phần trăm đơn hàng
     let percentageChangeOrder = 0;
-    if (lastMonthOrders[0]?.totalOrders && currentMonthOrders[0]?.totalOrders) {
+    if (lastMonthOrders[0]?.totalOrders) {
       percentageChangeOrder =
-        ((currentMonthOrders[0].totalOrders - lastMonthOrders[0].totalOrders) /
+        (((currentMonthOrders[0]?.totalOrders || 0) -
+          lastMonthOrders[0].totalOrders) /
           lastMonthOrders[0].totalOrders) *
         100;
     }
 
     // Tính tỷ lệ thay đổi phần trăm doanh thu
     let percentageChangeRevenue = 0;
-    if (
-      lastMonthRevenue[0]?.totalRevenue &&
-      currentMonthRevenue[0]?.totalRevenue
-    ) {
+    if (lastMonthRevenue[0]?.totalRevenue) {
       percentageChangeRevenue =
-        ((currentMonthRevenue[0].totalRevenue -
+        (((currentMonthRevenue[0]?.totalRevenue || 0) -
           lastMonthRevenue[0].totalRevenue) /
           lastMonthRevenue[0].totalRevenue) *
         100;
@@ -281,12 +276,9 @@ class OrderService {
 
     // Tính tỷ lệ thay đổi phần trăm số lượng món đã bán
     let percentageChangeFoodSales = 0;
-    if (
-      lastMonthFoodSales[0]?.totalFoodSales &&
-      currentMonthFoodSales[0]?.totalFoodSales
-    ) {
+    if (lastMonthFoodSales[0]?.totalFoodSales) {
       percentageChangeFoodSales =
-        ((currentMonthFoodSales[0].totalFoodSales -
+        (((currentMonthFoodSales[0]?.totalFoodSales || 0) -
           lastMonthFoodSales[0].totalFoodSales) /
           lastMonthFoodSales[0].totalFoodSales) *
         100;
@@ -295,13 +287,19 @@ class OrderService {
     return {
       currentMonthOrders: currentMonthOrders[0]?.totalOrders || 0,
       lastMonthOrders: lastMonthOrders[0]?.totalOrders || 0,
-      percentageChangeOrder: percentageChangeOrder.toFixed(2),
+      percentageChangeOrder: lastMonthOrders[0]?.totalOrders
+        ? percentageChangeOrder.toFixed(2)
+        : "N/A",
       currentMonthRevenue: currentMonthRevenue[0]?.totalRevenue || 0,
       lastMonthRevenue: lastMonthRevenue[0]?.totalRevenue || 0,
-      percentageChangeRevenue: percentageChangeRevenue.toFixed(2),
+      percentageChangeRevenue: lastMonthRevenue[0]?.totalRevenue
+        ? percentageChangeRevenue.toFixed(2)
+        : "N/A",
       currentMonthFoodSales: currentMonthFoodSales[0]?.totalFoodSales || 0,
       lastMonthFoodSales: lastMonthFoodSales[0]?.totalFoodSales || 0,
-      percentageChangeFoodSales: percentageChangeFoodSales.toFixed(2),
+      percentageChangeFoodSales: lastMonthFoodSales[0]?.totalFoodSales
+        ? percentageChangeFoodSales.toFixed(2)
+        : "N/A",
     };
   }
 
@@ -455,50 +453,48 @@ class OrderService {
         await user.save();
       }
 
-      
-
       // Gửi email xác nhận đơn hàng
-    const url = `${
-      process.env.URL || "http://localhost:3001"
-    }/api/v1/orders/confirmation/${newOrder._id}`;
+      const url = `${
+        process.env.URL || "http://localhost:3001"
+      }/api/v1/orders/confirmation/${newOrder._id}`;
 
-    const qrCode = await QRCode.toBuffer(url);
+      const qrCode = await QRCode.toBuffer(url);
 
-    const qrCodeUrl = await uploadFileToS3(
-      "qr-codes",
-      {
-        name: `order-${newOrder._id}.png`,
-        body: qrCode,
-        type: "image/png",
-      },
-      {
-        region: process.env.REGION,
-        accessKeyId: process.env.ACCESS_KEY,
-        secretAccessKey: process.env.SECRET_ACCESS_KEY,
-        bucket: process.env.BUCKET,
-      }
-    );
-
-    const generateOrderBill = generateOrderHTML(newOrder, qrCodeUrl);
-
-    const mailOptions = {
-      from: process.env.EMAIL,
-      to: user?.email || newOrder.customerInfo.email,
-      subject: `Đơn hàng và mã QR của đơn hàng #${newOrder._id}`,
-      html: generateOrderBill,
-    };
-
-    try {
-      await transporter.sendMail(mailOptions);
-      console.log(
-        `Email sent to ${user?.email || newOrder.customerInfo.email} for order #${
-          newOrder._id
-        }`
+      const qrCodeUrl = await uploadFileToS3(
+        "qr-codes",
+        {
+          name: `order-${newOrder._id}.png`,
+          body: qrCode,
+          type: "image/png",
+        },
+        {
+          region: process.env.REGION,
+          accessKeyId: process.env.ACCESS_KEY,
+          secretAccessKey: process.env.SECRET_ACCESS_KEY,
+          bucket: process.env.BUCKET,
+        }
       );
-    } catch (error) {
-      console.error("Error sending email:", error);
-      return new Error("Gửi email thất bại");
-    }
+
+      const generateOrderBill = generateOrderHTML(newOrder, qrCodeUrl);
+
+      const mailOptions = {
+        from: process.env.EMAIL,
+        to: user?.email || newOrder.customerInfo.email,
+        subject: `Đơn hàng và mã QR của đơn hàng #${newOrder._id}`,
+        html: generateOrderBill,
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+        console.log(
+          `Email sent to ${
+            user?.email || newOrder.customerInfo.email
+          } for order #${newOrder._id}`
+        );
+      } catch (error) {
+        console.error("Error sending email:", error);
+        return new Error("Gửi email thất bại");
+      }
 
       return await newOrder.save();
     }
