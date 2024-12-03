@@ -10,6 +10,8 @@ const CryptoJS = require("crypto-js");
 const Transaction = require("../models/transaction.model");
 const Wallet = require("../models/wallet.model");
 const { deposit } = require("./zalopay.service");
+const mongoose = require("mongoose");
+
 const config = {
   app_id: process.env.ZALOPAY_APP_ID,
   key1: process.env.ZALOPAY_KEY1,
@@ -88,6 +90,7 @@ class UserService {
     });
   }
 
+
   static async getAllUsers(req) {
     const all = req.query.all;
     const page = parseInt(req.query.page) || 1;
@@ -131,6 +134,70 @@ class UserService {
     };
   }
 
+ 
+
+  static async addFoodToWishList(req, res) {
+   
+    const userId = req.body.userId;
+    const foodId = req.body.foodId;
+
+    try {
+        if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(foodId)) {
+            return res.status(400).json({
+                success: false,
+                message: "ID không hợp lệ",  
+            });
+        }
+
+        // Tìm người dùng theo userId
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "Người dùng không tồn tại",
+            });
+        }
+
+        // Tìm món ăn theo foodId
+        const food = await Food.findById(foodId);
+        if (!food) {
+            return res.status(404).json({
+                success: false,
+                message: "Món ăn không tồn tại",
+            });
+        }
+
+        // Kiểm tra xem món ăn đã có trong danh sách yêu thích chưa
+        if (user.wishList.includes(foodId)) {
+            // Nếu có, xóa khỏi danh sách yêu thích
+            user.wishList = user.wishList.filter(id => id.toString() !== foodId.toString());
+            await user.save();
+
+            return res.status(200).json({
+                success: true,
+                message: "Đã xóa món ăn khỏi danh sách yêu thích",
+                updatedWishList: user.wishList,
+            });
+        } else {
+            // Nếu chưa có, thêm vào danh sách yêu thích
+            user.wishList.push(food);
+            await user.save();
+            return res.status(200).json({
+                success: true,
+                message: "Đã thêm món ăn vào danh sách yêu thích",
+                updatedWishList: user.wishList,
+            });
+        }
+    } catch (error) {
+        console.error('Error in addFoodToWishList:', error); 
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+  }
+
+ 
   static async getUserById(req, res) {
     const { id } = req.params;
     const all = req.query.all;

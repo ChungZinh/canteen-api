@@ -3,6 +3,7 @@ const router = express.Router();
 const { asyncHandler } = require("../helpers/asyncHandler");
 const { authentification } = require("../auth/authUtils");
 const UserController = require("../controllers/user.controller");
+const UserService = require("../services/user.service");
 /**
  * @swagger
  * /api/user-registration-comparison:
@@ -32,7 +33,6 @@ const UserController = require("../controllers/user.controller");
  *       500:
  *         description: Lỗi khi tính toán số lượng người dùng
  */
-
 router.get("/statistics", asyncHandler(UserController.getStatistics));
 
 /**
@@ -116,4 +116,6 @@ router.use(authentification);
 router.get("/", asyncHandler(UserController.getAllUsers));
 router.get("/:id", asyncHandler(UserController.getUserById));
 router.post("/deposit", asyncHandler(UserController.deposit));
+router.get("/wishlist/:id",asyncHandler(UserService.getWishlist));
+router.post("/wishlist",asyncHandler(UserService.addFoodToWishList));
 module.exports = router;
