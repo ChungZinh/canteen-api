@@ -63,6 +63,8 @@ const OrderController = require("../controllers/order.controller");
 
 router.post("/zalopay-callback", asyncHandler(OrderController.zalopayCallback));
 router.post("/", asyncHandler(OrderController.createOrder));
+router.post("/mobile", asyncHandler(OrderController.createOrderMobile));
+
 
 router.post("/pos", asyncHandler(OrderController.createOrderPos));
 
@@ -121,6 +123,8 @@ router.put("/chef/:id", asyncHandler(OrderController.updateOrderStatus));
 router.post("/", asyncHandler(OrderController.createOrder));
 router.get("/:id", asyncHandler(OrderController.getOrderById));
 router.post("/refund", asyncHandler(OrderController.refundOrder));
+router.get("/wallet/:id", asyncHandler(OrderController.getWatlletByUser));
+router.get("/mobile/:id", asyncHandler(OrderController.getOrderByUser));
 /**
  * @swagger
  * /api/orders:

@@ -74,6 +74,53 @@ class FoodService {
     };
   }
 
+  static async getAllFoodMobile(req) {
+    const all = req.query.all;
+    const page = parseInt(req.query.page) || 1;
+    const limit = all === "true" ? parseInt(req.query.limit) : 24;
+    const sortDirection = req.query.order === "asc" ? 1 : -1;
+
+    const foods = await Food.find({
+      ...(req.query.category && { category: req.query.category }),
+      ...(req.query.slug && { slug: req.query.slug }),
+      ...(req.query.foodId && { _id: req.query.foodId }),
+      ...(req.query.isSoldOut && { isSoldOut: req.query.isSoldOut }),
+      ...(req.query.searchTerm && {
+        $or: [
+          { name: { $regex: req.query.searchTerm, $options: "i" } },
+          { description: { $regex: req.query.searchTerm, $options: "i" } },
+        ],
+      }),
+    })
+      .populate("category", "name")
+      .sort({ createdAt: sortDirection })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const totalFoods = await Food.countDocuments();
+
+    const totalPages = Math.ceil(totalFoods / limit);
+
+    const timeNow = new Date();
+
+    const oneMonthAgo = new Date(
+      timeNow.getFullYear(),
+      timeNow.getMonth() - 1,
+      timeNow.getDate()
+    );
+
+    const lastMonthFoods = await Food.countDocuments({
+      createdAt: { $gte: oneMonthAgo },
+    });
+
+    return {
+      foods,
+      totalPages,
+      totalFoods,
+      lastMonthFoods,
+    };
+  }
+
   // Hàm tính tổng số món đã bán trong tháng hiện tại và tháng trước, và so sánh tỷ lệ thay đổi
   static async getStatistics(req) {
     const timeNow = new Date();

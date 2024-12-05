@@ -60,6 +60,7 @@ const { authentification } = require("../auth/authUtils");
  *                       type: integer
  */
 router.get("/", asyncHandler(FoodController.getAllFood));
+router.get("/mobile", asyncHandler(FoodController.getAllFoodMobile));
 
 /**
  * @swagger

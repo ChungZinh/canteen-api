@@ -47,6 +47,21 @@ class OrderController {
     }).send(res);
   }
 
+  static async getWatlletByUser(req, res, next) {
+    new SuccessResponse({
+      message: "Thông tin User and Wallet",
+      data: await OrderService.getWalletByUserId(req),
+    }).send(res);
+  }
+
+  
+  static async getOrderByUser(req, res, next) {
+    new SuccessResponse({
+      message: "Thông tin chi tiết đơn hàng",
+      data: await OrderService.getOrderByUserId(req),
+    }).send(res);
+  }
+
   static async getStatistics(req, res, next) {
     new SuccessResponse({
       message: "Thống kê số lượng đơn hàng",
@@ -60,6 +75,7 @@ class OrderController {
       data: await OrderService.createOrder(req),
     }).send(res);
   }
+
 
   static async zalopayCallback(req, res, next) {
     new SuccessResponse({
@@ -81,6 +97,14 @@ class OrderController {
       data: await OrderService.createOrderPos(req),
     }).send(res);
   }
+
+  static async createOrderMobile(req, res, next) {
+    new CreatedResponse({
+      message: "Đơn hàng đã được tạo thành công",
+      data: await OrderService.createOrderMobile(req),
+    }).send(res);
+  }
+
 
   static async updateOrderStatus(req, res, next) {
     new SuccessResponse({

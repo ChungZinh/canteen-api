@@ -7,6 +7,7 @@ const Food = require("../models/food.model");
 const Wallet = require("../models/wallet.model");
 const QRCode = require("qrcode");
 const User = require("../models/user.model");
+const mongoose = require('mongoose');
 const {
   NotFoundResponse,
   UnauthorizedResponse,
@@ -92,6 +93,30 @@ class OrderService {
       .populate("foods", "name image price quantity");
 
     return order;
+  }
+
+  static async getOrderByUserId(req) {
+    const userId = req.params.id.trim();  // Trim any extra spaces or newlines
+    
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      throw new Error("Invalid user ID format");
+    }
+  
+    const order = await Order.find({ user: new mongoose.Types.ObjectId(userId) })  // Use 'new' for ObjectId
+      .populate("user", "fullName phone email avatar")
+      .populate("foods", "name image price quantity");
+  
+    return order;
+  }
+
+  static async getWalletByUserId(req) {
+    const userId = req.params.id;  
+  
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      throw new Error("Invalid user ID format");
+    }
+      const UserWallet = await User.findById(userId).populate("wallet");
+    return UserWallet;
   }
 
   static async getOrdersForChef(req) {
@@ -301,6 +326,124 @@ class OrderService {
         : "N/A",
     };
   }
+
+  
+static async createOrderMobile(req) {
+  const {
+    userId,
+    foods,
+    amount,
+    status,
+    note,
+    customerInfo,
+    point,
+    paymentMethod
+  } = req.body;
+
+  console.log("body", req.body);
+
+  // Insert food details into the database
+  const detailFoods = await foods.map((food) => {
+    return {
+      _id: food._id,
+      name: food.name,
+      quantity: food.quantity,
+      price: food.price,
+      total: food.quantity * food.price,
+      image: food.image,
+    };
+  });
+
+  if (paymentMethod === "Ví Sinh Viên") {
+    // Handle wallet payment
+    const user = await User.findById(userId).populate("wallet");
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    if (user.wallet.balance < amount) {
+      throw new Error("Insufficient wallet balance");
+    }
+
+    // Deduct wallet balance  
+    user.wallet.balance -= amount;
+
+    // Accumulate points
+    let totalPoints = detailFoods.reduce((sum, item) => sum + item.quantity * 15, 0);
+    user.points += totalPoints;
+
+    // Save wallet and user updates
+    await user.wallet.save();
+    await user.save();
+
+    // Create order
+    let newOrder = new Order({
+      user: userId,
+      customerInfo: customerInfo,
+      foods: detailFoods,
+      note: note,
+      amount,
+      payMethod: paymentMethod,
+      status: "Đã thanh toán",
+      timeline: [
+        {
+          status: "Đã thanh toán",
+          note: "Thanh toán thành công qua ví điện tử.",
+        },
+      ],
+      payMethodResponse: {},
+    });
+
+    await newOrder.save();
+
+    user.orders.push(newOrder._id); // Add the order ID to the user's orders
+    await user.save();
+
+    console.log("newOrder", newOrder);
+
+    return {
+      newOrder,
+      orderUrl: null,
+    };
+  } else {
+    // Handle other payment methods (default behavior)
+    let newOrder = new Order({
+      user: userId || null,
+      customerInfo: customerInfo,
+      foods: detailFoods,
+      note: note,
+      amount,
+      payMethod: paymentMethod,
+      status: status || "Đã đặt",
+      timeline: [
+        {
+          status: status || "Đã đặt",
+          note: note,
+        },
+      ],
+      payMethodResponse: {},
+    });
+
+    await newOrder.save();
+
+    const user = await User.findById(userId);
+    if (user) {
+      user.orders.push(newOrder._id); // Add the order ID to the user's orders
+      user.points -= point; // Deduct points if available
+      await user.save();
+    }
+
+    console.log("newOrder", newOrder);
+
+    return {
+      newOrder,
+      orderUrl: null,
+    };
+  }
+}
+
+
+  
 
   static async createOrder(req) {
     const {
