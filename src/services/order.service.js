@@ -16,6 +16,8 @@ const { getIO } = require("../socket");
 const { transporter } = require("../utils/sendMail");
 const { generateOrderHTML } = require("../utils/generateOrderHTML");
 const uploadFileToS3 = require("../utils/s3Upload");
+const encodeOrderId = require("../utils/encode");
+const moment = require("moment");
 const config = {
   app_id: process.env.ZALOPAY_APP_ID,
   key1: process.env.ZALOPAY_KEY1,
@@ -27,27 +29,34 @@ const config = {
 };
 class OrderService {
   static async getAllOrders(req) {
-    const all = req.query.all;
+    const all = req.query.all === "true";
     const page = parseInt(req.query.page) || 1;
-    const limit = all === "true" ? parseInt(req.query.limit) : 8;
+    const limit = all ? parseInt(req.query.limit) || 0 : 8;
     const sortDirection = req.query.order === "asc" ? 1 : -1;
-    const orders = await Order.find({
+
+
+    const filters = {
       ...(req.query.id && { _id: req.query.id }),
       ...(req.query.user && { user: req.query.user }),
       ...(req.query.status && { status: req.query.status }),
-    })
+      ...(req.query.searchTerm && {
+        $or: [
+          { encodeOrderID: { $regex: req.query.searchTerm, $options: "i" } },
+        ],
+      }),
+    };
+
+    const orders = await Order.find(filters)
       .populate("user", "fullName phone email avatar")
       .populate("foods", "name image price quantity")
       .sort({ createdAt: sortDirection })
       .skip((page - 1) * limit)
       .limit(limit);
 
-    const totalOrders = await Order.countDocuments();
-
-    const totalPages = Math.ceil(totalOrders / limit);
+    const totalOrders = await Order.countDocuments(filters);
+    const totalPages = limit > 0 ? Math.ceil(totalOrders / limit) : 1;
 
     const timeNow = new Date();
-
     const oneMonthAgo = new Date(
       timeNow.getFullYear(),
       timeNow.getMonth() - 1,
@@ -58,8 +67,18 @@ class OrderService {
       createdAt: { $gte: oneMonthAgo },
     });
 
+    // Map and encode order IDs asynchronously
+    const encodedOrders = await Promise.all(
+      orders.map(async (order) => {
+        order.encodeOrderID = await encodeOrderId(order._id);
+        return order;
+      })
+
+    );
+    
+
     return {
-      orders,
+      orders: encodedOrders,
       totalOrders,
       totalPages,
       lastMonthOrders,
@@ -163,12 +182,7 @@ class OrderService {
         $match: {
           createdAt: { $gte: startOfMonth, $lte: endOfMonth },
           status: {
-            $in: [
-              "Đã thanh toán",
-              "Đã hoàn tất",
-              "Đã chuẩn bị",
-              "Đang chuẩn bị",
-            ],
+            $in: ["Đã hoàn tất"],
           },
         },
       },
@@ -186,12 +200,7 @@ class OrderService {
         $match: {
           createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth },
           status: {
-            $in: [
-              "Đã thanh toán",
-              "Đã hoàn tất",
-              "Đã chuẩn bị",
-              "Đang chuẩn bị",
-            ],
+            $in: ["Đã hoàn tất"],
           },
         },
       },
@@ -212,12 +221,7 @@ class OrderService {
         $match: {
           createdAt: { $gte: startOfMonth, $lte: endOfMonth },
           status: {
-            $in: [
-              "Đã thanh toán",
-              "Đã hoàn tất",
-              "Đã chuẩn bị",
-              "Đang chuẩn bị",
-            ],
+            $in: ["Đã hoàn tất"],
           },
         },
       },
@@ -236,12 +240,7 @@ class OrderService {
         $match: {
           createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth },
           status: {
-            $in: [
-              "Đã thanh toán",
-              "Đã hoàn tất",
-              "Đã chuẩn bị",
-              "Đang chuẩn bị",
-            ],
+            $in: ["Đã hoàn tất"],
           },
         },
       },
@@ -379,6 +378,9 @@ class OrderService {
             zp_trans_id: "",
           },
         });
+
+        newOrder.encodeOrderID = encodeOrderId(newOrder._id);
+
         await newOrder.save();
 
         const user = await User.findById(userId);
@@ -387,9 +389,6 @@ class OrderService {
           user.points -= point; // Trừ điểm
           await user.save();
         }
-
-        console.log("newOrder", newOrder);
-
         return {
           newOrder,
           orderUrl: response.data.order_url,
@@ -453,6 +452,10 @@ class OrderService {
         await user.save();
       }
 
+      // Gửi sự kiện đến màn hình Chef qua WebSocket
+      const io = getIO();
+      io.emit("order_paid", newOrder); // Chỉ gửi object order, không bọc trong `{ order: ... }`
+
       // Gửi email xác nhận đơn hàng
       const url = `${
         process.env.URL || "http://localhost:3001"
@@ -495,6 +498,8 @@ class OrderService {
         console.error("Error sending email:", error);
         return new Error("Gửi email thất bại");
       }
+
+      newOrder.encodeOrderID = encodeOrderId(newOrder._id);
 
       return await newOrder.save();
     }
@@ -553,6 +558,7 @@ class OrderService {
 
     // Cập nhật thông tin thanh toán
     order.payMethodResponse.zp_trans_id = dataJson.zp_trans_id.toString();
+    await order.payMethodResponse.save();
 
     // Parse danh sách sản phẩm từ đơn hàng
     let items;
@@ -577,6 +583,7 @@ class OrderService {
 
         product.stock -= item.quantity;
         product.sales += item.quantity;
+        console.log("product", product.sales);
         totalPoints += item.quantity * 10; // Tích lũy điểm
         await product.save();
       } catch (error) {
@@ -791,6 +798,111 @@ class OrderService {
     }
 
     return await order.save();
+  }
+
+  static async refundOrder(req) {
+    const { id, description } = req.body;
+    console.log("id", id);
+    const config = {
+      app_id: process.env.ZALOPAY_APP_ID,
+      key1: process.env.ZALOPAY_KEY1,
+      key2: process.env.ZALOPAY_KEY2,
+      refund_url: "https://sb-openapi.zalopay.vn/v2/refund",
+    };
+
+    const order = await Order.findById(id);
+
+    if (order.payMethod === "Ví Sinh Viên") {
+      const user = await User.findById(order.user);
+      user.wallet.balance += order.amount;
+      await user.wallet.save();
+
+      order.status = "Đã hủy";
+      order.timeline.push({
+        status: "Đã hủy",
+        note: description,
+      });
+
+      return await order.save();
+    } else if (order.payMethod === "ZaloPay") {
+      const timestamp = Date.now();
+      const uid = `${timestamp}${Math.floor(111 + Math.random() * 999)}`; // unique id
+
+      let params = {
+        app_id: config.app_id,
+        m_refund_id: `${moment().format("YYMMDD")}_${config.app_id}_${uid}`,
+        timestamp, // miliseconds
+        zp_trans_id: order.payMethodResponse?.zp_trans_id,
+        amount: order.amount,
+        description: description,
+      };
+
+      // Check required parameters
+      console.log("Refund parameters:", params);
+
+      // app_id|zp_trans_id|amount|description|timestamp
+      let data =
+        params.app_id +
+        "|" +
+        params.zp_trans_id +
+        "|" +
+        params.amount +
+        "|" +
+        params.description +
+        "|" +
+        params.timestamp;
+
+      params.mac = CryptoJS.HmacSHA256(data, config.key1).toString();
+
+      axios
+        .post(config.refund_url, null, { params })
+        .then((res) => console.log(res.data))
+        .catch((err) => console.log(err));
+      // console.log("Response from ZaloPay:", response.data);
+
+      if (response.data.return_code === 1) {
+        // Cập nhật trạng thái đơn hàng
+        order.status = "Đã hủy";
+        order.timeline.push({
+          status: "Đã hủy",
+          note: description,
+        });
+
+        // Cập nhật kho và doanh số sản phẩm
+        const productUpdates = order.foods.map(async (item) => {
+          try {
+            const product = await Food.findById(item._id);
+
+            if (!product) {
+              console.error(`Product not found for ID: ${item._id}`);
+              return; // Bỏ qua sản phẩm không tồn tại
+            }
+
+            product.stock += item.quantity;
+            product.sales -= item.quantity;
+            await product.save();
+          } catch (error) {
+            console.error(`Error updating product ${item._id}:`, error);
+          }
+        });
+
+        await Promise.all(productUpdates);
+
+        // Cập nhật điểm và đơn hàng của người dùng
+        const user = await User.findById(order.user);
+        if (user) {
+          user.points -= order.points;
+          user.orders.push(order._id);
+          await user.save();
+        }
+
+        return await order.save();
+      } else {
+        throw new BadRequestResponse("Hoàn tiền thất bại");
+      }
+    } else {
+      throw new BadRequestResponse("Hoàn tiền thất bại");
+    }
   }
 }
 

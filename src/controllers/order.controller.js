@@ -95,6 +95,13 @@ class OrderController {
       data: await OrderService.completeOrder(req),
     }).send(res);
   }
+
+  static async refundOrder(req, res, next) {
+    new SuccessResponse({
+      message: "Hoàn tiền đơn hàng thành công",
+      data: await OrderService.refundOrder(req),
+    }).send(res);
+  }
 }
 
 module.exports = OrderController;

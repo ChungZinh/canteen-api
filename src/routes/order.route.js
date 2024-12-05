@@ -120,6 +120,7 @@ router.get("/chef", asyncHandler(OrderController.getOrdersForChef));
 router.put("/chef/:id", asyncHandler(OrderController.updateOrderStatus));
 router.post("/", asyncHandler(OrderController.createOrder));
 router.get("/:id", asyncHandler(OrderController.getOrderById));
+router.post("/refund", asyncHandler(OrderController.refundOrder));
 /**
  * @swagger
  * /api/orders:

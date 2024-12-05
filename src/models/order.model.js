@@ -3,9 +3,19 @@ const mongoose = require("mongoose"); // Erase if already required
 const DOCUMENT_NAME = "Order";
 const COLLECTION_NAME = "orders";
 
+const payMethodResponseSchema = new mongoose.Schema({
+  order_url: String,
+  app_id: String,
+  trans_id: String,
+  zp_trans_id: String, // Ensure the structure for ZaloPay response
+});
+
 // Declare the Schema of the Mongo model
 var orderSchema = new mongoose.Schema(
   {
+    encodeOrderID: {
+      type: String,
+    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -44,7 +54,7 @@ var orderSchema = new mongoose.Schema(
       required: true,
     },
     payMethodResponse: {
-      type: Object,
+      type: payMethodResponseSchema,
     },
     timeline: [
       {

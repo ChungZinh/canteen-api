@@ -1,4 +1,3 @@
-const { config } = require("dotenv");
 const moment = require("moment");
 
 const createOrder = (config, amount, items, userID) => {
