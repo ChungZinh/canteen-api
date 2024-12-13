@@ -3,6 +3,7 @@ const router = express.Router();
 const AuthController = require("../controllers/auth.controller");
 const { asyncHandler } = require("../helpers/asyncHandler");
 const { authentification } = require("../auth/authUtils");
+const AuthService = require("../services/auth.service");
 
 /**
  * @swagger
@@ -130,6 +131,7 @@ router.post("/register", asyncHandler(AuthController.register));
  *         description: Internal server error
  */
 router.post("/signin", asyncHandler(AuthController.signin));
+router.put("/:userId", asyncHandler(AuthService.changePassword));
 
 /**
  * @swagger

@@ -161,6 +161,8 @@ class AuthService {
     };
   }
 
+
+
   static async registerUser(req) {
     const { studentId, password, fullName, email, phone, rePassword } =
       req.body;
@@ -210,6 +212,66 @@ class AuthService {
 
     return newUser;
   }
+
+  static async changePassword(req, res) {
+    const { userId } = req.params;
+    const { oldPassword, newPassword } = req.body;
+  
+    try {
+      // Kiểm tra ID người dùng hợp lệ
+      // if (!mongoose.Types.ObjectId.isValid(userId)) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "ID người dùng không hợp lệ",
+      //   });
+      // }
+  
+      // Tìm người dùng theo ID
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "Người dùng không tồn tại",
+        });
+      }
+  
+      // Kiểm tra mật khẩu cũ có khớp không
+      const isOldPasswordMatch = await bcrypt.compare(oldPassword, user.password);
+      if (!isOldPasswordMatch) {
+        return res.status(400).json({
+          success: false,
+          message: "Mật khẩu cũ không chính xác",
+        });
+      }
+  
+      // Kiểm tra mật khẩu mới có giống mật khẩu cũ không
+      if (oldPassword === newPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "Mật khẩu mới không được giống mật khẩu cũ",
+        });
+      }
+  
+      // Mã hóa mật khẩu mới
+      const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+  
+      // Cập nhật mật khẩu mới vào cơ sở dữ liệu
+      user.password = hashedNewPassword;
+      await user.save();
+  
+      return res.status(200).json({
+        success: true,
+        message: "Mật khẩu đã được cập nhật thành công",
+      });
+    } catch (error) {
+      console.error("Error in changePassword:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Có lỗi xảy ra khi thay đổi mật khẩu",
+      });
+    }
+  }
+  
 
   static async logout(req) {
     const { refreshToken } = req.body;

@@ -328,120 +328,216 @@ class OrderService {
   }
 
   
-static async createOrderMobile(req) {
-  const {
-    userId,
-    foods,
-    amount,
-    status,
-    note,
-    customerInfo,
-    point,
-    paymentMethod
-  } = req.body;
-
-  console.log("body", req.body);
-
-  // Insert food details into the database
-  const detailFoods = await foods.map((food) => {
-    return {
-      _id: food._id,
-      name: food.name,
-      quantity: food.quantity,
-      price: food.price,
-      total: food.quantity * food.price,
-      image: food.image,
-    };
-  });
-
-  if (paymentMethod === "Ví Sinh Viên") {
-    // Handle wallet payment
-    const user = await User.findById(userId).populate("wallet");
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    if (user.wallet.balance < amount) {
-      throw new Error("Insufficient wallet balance");
-    }
-
-    // Deduct wallet balance  
-    user.wallet.balance -= amount;
-
-    // Accumulate points
-    let totalPoints = detailFoods.reduce((sum, item) => sum + item.quantity * 15, 0);
-    user.points += totalPoints;
-
-    // Save wallet and user updates
-    await user.wallet.save();
-    await user.save();
-
-    // Create order
-    let newOrder = new Order({
-      user: userId,
-      customerInfo: customerInfo,
-      foods: detailFoods,
-      note: note,
+  static async createOrderMobile(req) {
+    const {
+      userId,
+      foods,
       amount,
-      payMethod: paymentMethod,
-      status: "Đã thanh toán",
-      timeline: [
-        {
-          status: "Đã thanh toán",
-          note: "Thanh toán thành công qua ví điện tử.",
-        },
-      ],
-      payMethodResponse: {},
+      status,
+      note,
+      customerInfo,
+      point,
+      paymentMethod,
+    } = req.body;
+  
+    console.log("body", req.body);
+  
+    // Insert food details into the database
+    const detailFoods = await foods.map((food) => {
+      return {
+        _id: food._id,
+        name: food.name,
+        quantity: food.quantity,
+        price: food.price,
+        total: food.quantity * food.price,
+        image: food.image,
+      };
     });
-
-    await newOrder.save();
-
-    user.orders.push(newOrder._id); // Add the order ID to the user's orders
-    await user.save();
-
-    console.log("newOrder", newOrder);
-
-    return {
-      newOrder,
-      orderUrl: null,
-    };
-  } else {
-    // Handle other payment methods (default behavior)
-    let newOrder = new Order({
-      user: userId || null,
-      customerInfo: customerInfo,
-      foods: detailFoods,
-      note: note,
-      amount,
-      payMethod: paymentMethod,
-      status: status || "Đã đặt",
-      timeline: [
-        {
-          status: status || "Đã đặt",
-          note: note,
-        },
-      ],
-      payMethodResponse: {},
-    });
-
-    await newOrder.save();
-
-    const user = await User.findById(userId);
-    if (user) {
-      user.orders.push(newOrder._id); // Add the order ID to the user's orders
-      user.points -= point; // Deduct points if available
+  
+    if (paymentMethod === "Ví Sinh Viên") {
+      // Handle wallet payment
+      const user = await User.findById(userId).populate("wallet");
+      if (!user) {
+        throw new Error("User not found");
+      }
+  
+      if (user.wallet.balance < amount) {
+        throw new Error("Insufficient wallet balance");
+      }
+  
+      // Deduct wallet balance  
+      user.wallet.balance -= amount;
+  
+      // Accumulate points
+      let totalPoints = detailFoods.reduce((sum, item) => sum + item.quantity * 15, 0);
+      user.points += totalPoints;
+  
+      // Save wallet and user updates
+      await user.wallet.save();
       await user.save();
+  
+      // Create order
+      let newOrder = new Order({
+        user: userId,
+        customerInfo: customerInfo,
+        foods: detailFoods,
+        note: note,
+        amount,
+        payMethod: paymentMethod,
+        status: "Đã thanh toán",
+        timeline: [
+          {
+            status: "Đã thanh toán",
+            note: "Thanh toán thành công qua ví điện tử.",
+          },
+        ],
+        payMethodResponse: {},
+      });
+  
+      await newOrder.save();
+  
+      user.orders.push(newOrder._id); // Add the order ID to the user's orders
+      await user.save();
+  
+      console.log("newOrder", newOrder);
+  
+      return {
+        newOrder,
+        orderUrl: null,
+      };
+    } else if (paymentMethod === "ZaloPay") {
+      // Handle ZaloPay payment
+      const id = `GUEST-${Math.floor(Math.random() * 1000000)}`;
+  
+      const order = await createOrder(config, amount, detailFoods, userId || id);
+      const data = `${config.app_id}|${order.app_trans_id}|${order.app_user}|${order.amount}|${order.app_time}|${order.embed_data}|${order.item}`;
+      order.mac = CryptoJS.HmacSHA256(data, config.key1).toString();
+  
+      const response = await axios.post(config.endpoint, null, {
+        params: order,
+      });
+  
+      console.log("ZaloPay API Response:", response.data);
+  
+      if (response.data.return_code === 1) {
+        let newOrder = new Order({
+          user: userId || null,
+          customerInfo: customerInfo,
+          foods: detailFoods,
+          note: note,
+          amount,
+          payMethod: paymentMethod,
+          status: status || "Đã đặt",
+          timeline: [
+            {
+              status: status || "Đã đặt",
+              note: note,
+            },
+          ],
+          payMethodResponse: {
+            order_url: response.data.order_url,
+            app_id: order.app_id,
+            trans_id: order.app_trans_id,
+            zp_trans_id: "",
+          },
+        });
+  
+        newOrder.encodeOrderID = encodeOrderId(newOrder._id);
+        await newOrder.save();
+  
+        const user = await User.findById(userId);
+        if (user) {
+          user.orders.push(newOrder._id);
+          user.points -= point;
+          await user.save();
+        }
+        return {
+          newOrder,
+          orderUrl: response.data.order_url,
+        };
+      } else {
+        throw new Error(
+          `Tạo đơn hàng thất bại: ${response.data.return_message}`
+        );
+      }
+    } else if (paymentMethod === "Momo") {
+      // Handle Momo payment
+      const momoOrder = await createMomoOrder(amount, detailFoods, userId);
+      const momoResponse = await sendMomoRequest(momoOrder);
+  
+      if (momoResponse.success) {
+        let newOrder = new Order({
+          user: userId || null,
+          customerInfo: customerInfo,
+          foods: detailFoods,
+          note: note,
+          amount,
+          payMethod: paymentMethod,
+          status: status || "Đã đặt",
+          timeline: [
+            {
+              status: status || "Đã đặt",
+              note: note,
+            },
+          ],
+          payMethodResponse: momoResponse.data,
+        });
+  
+        newOrder.encodeOrderID = encodeOrderId(newOrder._id);
+        await newOrder.save();
+  
+        const user = await User.findById(userId);
+        if (user) {
+          user.orders.push(newOrder._id);
+          user.points -= point;
+          await user.save();
+        }
+        return {
+          newOrder,
+          orderUrl: momoResponse.data.orderUrl,
+        };
+      } else {
+        throw new Error(
+          `Tạo đơn hàng thất bại: ${momoResponse.errorMessage}`
+        );
+      }
+    } else {
+      // Handle other payment methods (default behavior)
+      let newOrder = new Order({
+        user: userId || null,
+        customerInfo: customerInfo,
+        foods: detailFoods,
+        note: note,
+        amount,
+        payMethod: paymentMethod,
+        status: status || "Đã đặt",
+        timeline: [
+          {
+            status: status || "Đã đặt",
+            note: note,
+          },
+        ],
+        payMethodResponse: {},
+      });
+  
+      await newOrder.save();
+  
+      const user = await User.findById(userId);
+      if (user) {
+        user.orders.push(newOrder._id);
+        user.points -= point;
+        await user.save();
+      }
+  
+      console.log("newOrder", newOrder);
+  
+      return {
+        newOrder,
+        orderUrl: response.data.order_url,
+      };
     }
-
-    console.log("newOrder", newOrder);
-
-    return {
-      newOrder,
-      orderUrl: null,
-    };
   }
-}
-
+  
 
   
 

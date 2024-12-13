@@ -197,6 +197,53 @@ class UserService {
     }
   }
 
+  static async updateUser(req, res) {
+    const userId = req.params.userId;
+    const { fullName, email, phone, address, avatar } = req.body;
+  
+    try {
+      // Kiểm tra ID người dùng hợp lệ
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({
+          success: false,
+          message: "ID người dùng không hợp lệ",
+        });
+      }
+  
+      // Tìm người dùng theo ID
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "Người dùng không tồn tại",
+        });
+      }
+  
+      // Cập nhật thông tin người dùng
+      if (fullName) user.fullName = fullName;
+      if (email) user.email = email;
+      if (phone) user.phone = phone;
+      if (address) user.address = address;
+      if (avatar) user.avatar = avatar;
+  
+      // Lưu thông tin người dùng
+      const updatedUser = await user.save();
+  
+      return res.status(200).json({
+        success: true,
+        message: "Cập nhật thông tin người dùng thành công",
+        updatedUser,
+      });
+    } catch (error) {
+      console.error("Error in updateUser:", error);
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+  
+
  
   static async getUserById(req, res) {
     const { id } = req.params;

@@ -111,6 +111,7 @@ router.get("/statistics", asyncHandler(UserController.getStatistics));
         500:
           description: Server error
 */
+router.put('/:userId', asyncHandler(UserService.updateUser));
 router.post("/zalopay-callback", asyncHandler(UserController.zalopayCallback));
 router.use(authentification);
 router.get("/", asyncHandler(UserController.getAllUsers));
@@ -118,4 +119,6 @@ router.get("/:id", asyncHandler(UserController.getUserById));
 router.post("/deposit", asyncHandler(UserController.deposit));
 router.get("/wishlist/:id",asyncHandler(UserService.getWishlist));
 router.post("/wishlist",asyncHandler(UserService.addFoodToWishList));
+
+
 module.exports = router;
